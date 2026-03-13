@@ -1,73 +1,37 @@
-# React + TypeScript + Vite
+# FitHub - Plataforma de Gestión Deportiva
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+[cite_start]Este proyecto es el backend y sistema de gestión para la cadena de gimnasios **FitHub**.Centraliza la lógica de reservas, membresías y pagos para evitar inconsistencias y sobreventa de cupos.
 
-Currently, two official plugins are available:
+## 🛠️ Requisitos Previos
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+* **Node.js**: Versión 18 o superior.
+* **Git**: Configurado con tu usuario de GitHub.
+* **Supabase**: Cuenta activa con un proyecto creado.
 
-## React Compiler
+## ⚙️ Configuración del Entorno (Multiplataforma)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Debido a que el equipo utiliza diferentes sistemas operativos (**Arch Linux** y **Windows**), es obligatorio configurar el manejo de finales de línea para evitar conflictos en Git:
 
-## Expanding the ESLint configuration
+### En Windows (PowerShell/CMD):
+```bash
+git config --global core.autocrlf true
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+🚀 Instalación y Ejecución
+Clonar el repositorio:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+git clone [url-del-repo]
+cd fithub-web
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Instalar dependencias:
+npm install
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Configurar variables de entorno:
+Crea un archivo .env en la raíz basado en .env.example:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Fragmento de código
+VITE_SUPABASE_URL=tu_url_de_supabase
+VITE_SUPABASE_ANON_KEY=tu_anon_key_de_supabase
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Correr en modo desarrollo:
+npm run dev
