@@ -10,7 +10,8 @@ interface Props {
 }
 
 export const MemberCard: React.FC<Props> = ({ nombre, plan, estado, telefono, onViewProfile, onRenew }) => {
-  const initials = nombre
+  const safeName = nombre.trim() || 'Miembro';
+  const initials = safeName
     .split(' ')
     .map(n => n[0])
     .slice(0, 2)
@@ -20,7 +21,7 @@ export const MemberCard: React.FC<Props> = ({ nombre, plan, estado, telefono, on
     <article className={`member-card ${estado === 'Activo' ? 'active' : 'expired'}`}>
       <div className="member-avatar">{initials}</div>
       <div className="member-info">
-        <h4 className="member-name">{nombre}</h4>
+        <h4 className="member-name" title={safeName}>{safeName}</h4>
         <div className="member-plan">Plan: {plan}</div>
       </div>
 
@@ -30,7 +31,7 @@ export const MemberCard: React.FC<Props> = ({ nombre, plan, estado, telefono, on
       </div>
 
       <div className="quick-menu">
-        {estado !== 'Activo' && (
+        {estado !== 'Activo' && onRenew && (
           <button className="btn icon" title="Renovar" onClick={(e) => { e.stopPropagation(); onRenew && onRenew(); }}>Renovar</button>
         )}
         {telefono && (

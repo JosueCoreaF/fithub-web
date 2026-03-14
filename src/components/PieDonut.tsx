@@ -17,7 +17,8 @@ const describeArc = (cx: number, cy: number, r: number, startAngle: number, endA
 
 export const PieDonut: React.FC<Props> = ({ segments, size = 160, stroke = 28 }) => {
   const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
-  const radius = (size - stroke) / 2;
+  const padding = Math.max(14, Math.ceil(stroke / 2) + 4);
+  const radius = Math.max(0, (size - stroke - padding * 2) / 2);
   let acc = 0;
 
   return (
@@ -31,7 +32,7 @@ export const PieDonut: React.FC<Props> = ({ segments, size = 160, stroke = 28 })
           </feMerge>
         </filter>
       </defs>
-      <g transform={`translate(${size/2},${size/2})`}>
+      <g transform={`translate(${size / 2},${size / 2})`}>
         {segments.map((seg, i) => {
           const startAngle = (acc / total) * 360;
           acc += seg.value;

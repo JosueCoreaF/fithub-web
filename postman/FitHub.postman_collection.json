@@ -1,0 +1,281 @@
+{
+  "info": {
+    "_postman_id": "6f48c6c5-8e83-4e25-82ee-fithub-collection",
+    "name": "FitHub",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleccion base para validar el CRUD REST de Personas, Actividades, Reservas y Pagos."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api" },
+    { "key": "personaId", "value": "" },
+    { "key": "sedeId", "value": "" },
+    { "key": "trainerId", "value": "" },
+    { "key": "clienteId", "value": "" },
+    { "key": "actividadId", "value": "" },
+    { "key": "reservaId", "value": "" },
+    { "key": "membresiaId", "value": "" },
+    { "key": "pagoId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "GET Bootstrap Operativo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const payload = pm.response.json();",
+                  "if (payload.sedes?.[0]) pm.collectionVariables.set('sedeId', payload.sedes[0].id);",
+                  "if (payload.entrenadores?.[0]) pm.collectionVariables.set('trainerId', payload.entrenadores[0].id);",
+                  "if (payload.clientes?.[0]) pm.collectionVariables.set('clienteId', payload.clientes[0].id);",
+                  "if (payload.membresias?.[0]) pm.collectionVariables.set('membresiaId', payload.membresias[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bootstrap",
+              "host": ["{{baseUrl}}"],
+              "path": ["bootstrap"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Personas",
+      "item": [
+        {
+          "name": "POST Crear Persona",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["const body = pm.response.json();", "if (body?.id) pm.collectionVariables.set('personaId', body.id);"] }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Andrea Postman\",\n  \"correo\": \"andrea.postman@example.com\",\n  \"telefonos\": [\"+504-9999-7777\"],\n  \"direccion\": {\n    \"ciudad\": \"Tegucigalpa\",\n    \"colonia\": \"Palmira\",\n    \"calle\": \"Avenida 3\"\n  },\n  \"fechaNacimiento\": \"1997-04-10\",\n  \"roles\": {\n    \"cliente\": true,\n    \"entrenador\": false\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/personas", "host": ["{{baseUrl}}"], "path": ["personas"] }
+          }
+        },
+        {
+          "name": "GET Listar Personas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/personas", "host": ["{{baseUrl}}"], "path": ["personas"] }
+          }
+        },
+        {
+          "name": "GET Persona Por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/personas/{{personaId}}", "host": ["{{baseUrl}}"], "path": ["personas", "{{personaId}}"] }
+          }
+        },
+        {
+          "name": "PUT Actualizar Persona",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Andrea Postman Actualizada\",\n  \"correo\": \"andrea.postman@example.com\",\n  \"telefonos\": [\"+504-9999-8888\"],\n  \"direccion\": {\n    \"ciudad\": \"San Pedro Sula\",\n    \"colonia\": \"Universidad\",\n    \"calle\": \"Boulevard Principal\"\n  },\n  \"fechaNacimiento\": \"1997-04-10\",\n  \"roles\": {\n    \"cliente\": true,\n    \"entrenador\": true\n  },\n  \"especialidad\": \"Funcional\",\n  \"estadoLaboral\": \"Activo\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/personas/{{personaId}}", "host": ["{{baseUrl}}"], "path": ["personas", "{{personaId}}"] }
+          }
+        },
+        {
+          "name": "DELETE Persona",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/personas/{{personaId}}", "host": ["{{baseUrl}}"], "path": ["personas", "{{personaId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Actividades",
+      "item": [
+        {
+          "name": "POST Crear Actividad",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["const body = pm.response.json();", "if (body?.id) pm.collectionVariables.set('actividadId', body.id);"] }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreActividad\": \"Pilates Flow\",\n  \"descripcion\": \"Clase grupal de movilidad y control corporal\",\n  \"tipo\": \"Clase grupal\",\n  \"sedeId\": \"{{sedeId}}\",\n  \"entrenadorId\": \"{{trainerId}}\",\n  \"horario\": \"2026-03-20T17:00:00.000Z\",\n  \"cupoMaximo\": 18,\n  \"costo\": 6\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/actividades", "host": ["{{baseUrl}}"], "path": ["actividades"] }
+          }
+        },
+        {
+          "name": "GET Listar Actividades",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/actividades", "host": ["{{baseUrl}}"], "path": ["actividades"] }
+          }
+        },
+        {
+          "name": "GET Actividad Por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/actividades/{{actividadId}}", "host": ["{{baseUrl}}"], "path": ["actividades", "{{actividadId}}"] }
+          }
+        },
+        {
+          "name": "PUT Actualizar Actividad",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombreActividad\": \"Pilates Flow Plus\",\n  \"descripcion\": \"Clase grupal con foco en control postural y movilidad\",\n  \"tipo\": \"Clase grupal\",\n  \"sedeId\": \"{{sedeId}}\",\n  \"entrenadorId\": \"{{trainerId}}\",\n  \"horario\": \"2026-03-20T18:00:00.000Z\",\n  \"cupoMaximo\": 20,\n  \"costo\": 7\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/actividades/{{actividadId}}", "host": ["{{baseUrl}}"], "path": ["actividades", "{{actividadId}}"] }
+          }
+        },
+        {
+          "name": "DELETE Actividad",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/actividades/{{actividadId}}", "host": ["{{baseUrl}}"], "path": ["actividades", "{{actividadId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reservas",
+      "item": [
+        {
+          "name": "POST Crear Reserva",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["const body = pm.response.json();", "if (body?.id) pm.collectionVariables.set('reservaId', body.id);"] }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": \"{{clienteId}}\",\n  \"actividadId\": \"{{actividadId}}\",\n  \"fechaReserva\": \"2026-03-18T15:00:00.000Z\",\n  \"estado\": \"creada\",\n  \"precioAplicado\": 7\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/reservas", "host": ["{{baseUrl}}"], "path": ["reservas"] }
+          }
+        },
+        {
+          "name": "GET Listar Reservas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/reservas", "host": ["{{baseUrl}}"], "path": ["reservas"] }
+          }
+        },
+        {
+          "name": "GET Reserva Por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/reservas/{{reservaId}}", "host": ["{{baseUrl}}"], "path": ["reservas", "{{reservaId}}"] }
+          }
+        },
+        {
+          "name": "PUT Actualizar Reserva",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": \"{{clienteId}}\",\n  \"actividadId\": \"{{actividadId}}\",\n  \"fechaReserva\": \"2026-03-18T15:00:00.000Z\",\n  \"estado\": \"confirmada\",\n  \"precioAplicado\": 7\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/reservas/{{reservaId}}", "host": ["{{baseUrl}}"], "path": ["reservas", "{{reservaId}}"] }
+          }
+        },
+        {
+          "name": "DELETE Reserva",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/reservas/{{reservaId}}", "host": ["{{baseUrl}}"], "path": ["reservas", "{{reservaId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pagos",
+      "item": [
+        {
+          "name": "POST Crear Pago",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": ["const body = pm.response.json();", "if (body?.id) pm.collectionVariables.set('pagoId', body.id);"] }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservaId\": \"{{reservaId}}\",\n  \"monto\": 7,\n  \"fechaPago\": \"2026-03-18T15:05:00.000Z\",\n  \"metodoPago\": \"tarjeta\",\n  \"referencia\": \"PM-RES-001\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/pagos", "host": ["{{baseUrl}}"], "path": ["pagos"] }
+          }
+        },
+        {
+          "name": "GET Listar Pagos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/pagos", "host": ["{{baseUrl}}"], "path": ["pagos"] }
+          }
+        },
+        {
+          "name": "GET Pago Por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/pagos/{{pagoId}}", "host": ["{{baseUrl}}"], "path": ["pagos", "{{pagoId}}"] }
+          }
+        },
+        {
+          "name": "PUT Actualizar Pago",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservaId\": \"{{reservaId}}\",\n  \"monto\": 7,\n  \"fechaPago\": \"2026-03-18T15:06:00.000Z\",\n  \"metodoPago\": \"transferencia\",\n  \"referencia\": \"PM-RES-001-A\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/pagos/{{pagoId}}", "host": ["{{baseUrl}}"], "path": ["pagos", "{{pagoId}}"] }
+          }
+        },
+        {
+          "name": "DELETE Pago",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/pagos/{{pagoId}}", "host": ["{{baseUrl}}"], "path": ["pagos", "{{pagoId}}"] }
+          }
+        }
+      ]
+    }
+  ]
+}
