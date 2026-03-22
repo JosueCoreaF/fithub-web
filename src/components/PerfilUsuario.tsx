@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { syncProfilePersona } from '../lib/api';
-import { useGymData } from '../context/GymDataContext';
+import { useHotelData } from '../context/HotelDataContext';
 import EditableEntityImage from './EditableEntityImage';
 
 const normalizeEmail = (value?: string | null) => value?.trim().toLowerCase() ?? '';
@@ -26,8 +26,8 @@ const ToggleRow: React.FC<ToggleRowProps> = ({ label, description, checked, onCh
 );
 
 export const PerfilUsuario: React.FC = () => {
-  const { user, role, isAdmin, isClient, isSuperAdmin, signOut, updateProfile } = useAuth();
-  const { data, refresh } = useGymData();
+  const { user, role, isAdmin, isSuperAdmin, signOut, updateProfile } = useAuth();
+  const { data, refresh } = useHotelData();
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name ?? 'Mariana Rivera');
   const [email, setEmail] = useState(user?.email ?? 'mariana.rivera@fithub.admin');
   const [phone, setPhone] = useState((user?.user_metadata?.phone as string | undefined) ?? '+504 9988-2211');
@@ -79,7 +79,7 @@ export const PerfilUsuario: React.FC = () => {
     }
 
     const phoneRow = person ? data.personas.find((item) => item.id_persona === person.id_persona) : null;
-    const linkedPhone = person ? data.miembrosView.find((item) => item.id === person.id_persona)?.telefono : null;
+    const linkedPhone = person ? data.huespedesView.find((item) => item.id === person.id_persona)?.telefono : null;
 
     if (linkedPhone) {
       setPhone(linkedPhone);
@@ -93,15 +93,6 @@ export const PerfilUsuario: React.FC = () => {
       setStreet(person.direccion_calle ?? '');
     }
   }, [data, linkedPerson, user]);
-  const memberProfile = linkedPerson
-    ? data?.miembrosView.find((item) => item.id === linkedPerson.id_persona) ?? null
-    : null;
-  const clientReservations = linkedPerson
-    ? (data?.reservasView ?? []).filter((item) => item.clienteId === linkedPerson.id_persona)
-    : [];
-  const upcomingReservations = clientReservations
-    .filter((item) => new Date(item.fecha).getTime() >= Date.now() && item.estado !== 'cancelada')
-    .sort((left, right) => new Date(left.fecha).getTime() - new Date(right.fecha).getTime());
   const profileImageId = user?.id ?? user?.email ?? 'anonymous-profile';
 
   const handleSignOut = async () => {
@@ -147,11 +138,9 @@ export const PerfilUsuario: React.FC = () => {
     }
   };
 
-  const roleLabel = role === 'super_admin' ? 'Super admin' : role === 'admin' ? 'Admin' : role === 'trainer' ? 'Entrenador' : 'Cliente';
-  const profileBadge = isAdmin ? 'Perfil administrativo' : isClient ? 'Perfil de cliente' : 'Perfil profesional';
-  const profileDescription = isClient
-    ? 'Gestiona tus datos personales, preferencias y consulta el estado de tu membresía.'
-    : 'Gestiona tu identidad, preferencias y ajustes internos desde un solo lugar.';
+  const roleLabel = role === 'super_admin' ? 'Super admin' : role === 'admin' ? 'Admin' : 'Acceso interno';
+  const profileBadge = isSuperAdmin ? 'Perfil de super admin' : isAdmin ? 'Perfil administrativo' : 'Perfil interno';
+  const profileDescription = 'Gestiona tu identidad, preferencias y ajustes internos desde un solo lugar.';
 
   return (
     <div className="page profile-page">
@@ -201,8 +190,8 @@ export const PerfilUsuario: React.FC = () => {
               <span>{roleLabel}</span>
             </div>
             <div className="profile-meta-pill">
-              <strong>{isClient ? 'Membresía' : 'Estado'}</strong>
-              <span>{isClient ? memberProfile?.estado ?? 'Sin membresía' : 'Sesión protegida'}</span>
+              <strong>{isSuperAdmin ? 'Gobernanza' : 'Estado'}</strong>
+              <span>{isSuperAdmin ? 'Control global habilitado' : 'Sesion protegida'}</span>
             </div>
           </div>
         </article>
@@ -214,37 +203,18 @@ export const PerfilUsuario: React.FC = () => {
               <span>Esta vista habilita bloques internos adicionales para usuarios con rol administrativo.</span>
             </div>
           )}
-          {isClient ? (
-            <>
-              <div className="profile-summary-item">
-                <span>Plan actual</span>
-                <strong>{memberProfile?.plan ?? 'Sin plan'}</strong>
-              </div>
-              <div className="profile-summary-item">
-                <span>Próximas reservas</span>
-                <strong>{upcomingReservations.length}</strong>
-              </div>
-              <div className="profile-summary-item">
-                <span>Pagos registrados</span>
-                <strong>{memberProfile?.pagos.length ?? 0}</strong>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="profile-summary-item">
-                <span>Áreas bajo control</span>
-                <strong>{isAdmin ? '6 módulos' : '2 módulos'}</strong>
-              </div>
-              <div className="profile-summary-item">
-                <span>Alertas críticas</span>
-                <strong>{isAdmin ? '2 pendientes' : '0 pendientes'}</strong>
-              </div>
-              <div className="profile-summary-item">
-                <span>Sincronización</span>
-                <strong>Operativa</strong>
-              </div>
-            </>
-          )}
+          <div className="profile-summary-item">
+            <span>Areas bajo control</span>
+            <strong>{isSuperAdmin ? '7 modulos' : isAdmin ? '6 modulos' : '1 modulo'}</strong>
+          </div>
+          <div className="profile-summary-item">
+            <span>Alertas criticas</span>
+            <strong>{isSuperAdmin ? '3 pendientes' : isAdmin ? '2 pendientes' : '0 pendientes'}</strong>
+          </div>
+          <div className="profile-summary-item">
+            <span>Sincronizacion</span>
+            <strong>Operativa</strong>
+          </div>
         </article>
       </section>
 
@@ -284,8 +254,6 @@ export const PerfilUsuario: React.FC = () => {
               <label className="profile-field profile-field-full">
                 <span>Rol visible en la app</span>
                 <select className="input" value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as typeof role)}>
-                  <option value="client">Cliente</option>
-                  <option value="trainer">Entrenador</option>
                   <option value="admin">Admin</option>
                   <option value="super_admin">Super admin</option>
                 </select>
@@ -297,7 +265,7 @@ export const PerfilUsuario: React.FC = () => {
               </label>
             )}
           </div>
-          <p className="muted profile-role-note">{isSuperAdmin ? 'Como super admin puedes ajustar tu rol visible, pero los cambios sobre otros usuarios deben hacerse desde el módulo de accesos.' : isClient ? 'Tu cuenta de cliente puede actualizar sus datos personales, pero el rol se gestiona de forma centralizada.' : 'Tu rol ya no se puede modificar desde perfil. Solo un super admin puede reasignarlo desde el módulo de accesos.'}</p>
+          <p className="muted profile-role-note">{isSuperAdmin ? 'Como super admin puedes ajustar tu rol visible, pero los cambios sobre otros usuarios deben hacerse desde el modulo de accesos.' : 'Tu rol ya no se puede modificar desde perfil. Solo un super admin puede reasignarlo desde el modulo de accesos.'}</p>
         </article>
 
         <article className="card profile-section-card">
@@ -344,69 +312,27 @@ export const PerfilUsuario: React.FC = () => {
           </div>
         </article>
 
-        {isAdmin ? (
-          <article className="card profile-section-card profile-section-card-wide">
-            <div className="profile-section-head">
-              <span className="profile-kicker">Ajustes internos</span>
-              <h3>Operación avanzada</h3>
-            </div>
+        <article className="card profile-section-card profile-section-card-wide">
+          <div className="profile-section-head">
+            <span className="profile-kicker">Ajustes internos</span>
+            <h3>Operacion avanzada</h3>
+          </div>
 
-            <div className="profile-toggle-list">
-              <ToggleRow
-                label="Modo mantenimiento"
-                description="Pausa acciones sensibles del panel mientras se revisa la operación interna."
-                checked={maintenanceMode}
-                onChange={() => setMaintenanceMode((value) => !value)}
-              />
-              <ToggleRow
-                label="Registro de auditoría ampliado"
-                description="Guarda detalle extendido de movimientos administrativos y cambios críticos."
-                checked={auditLog}
-                onChange={() => setAuditLog((value) => !value)}
-              />
-            </div>
-          </article>
-        ) : isClient ? (
-          <article className="card profile-section-card profile-section-card-wide">
-            <div className="profile-section-head">
-              <span className="profile-kicker">Cuenta activa</span>
-              <h3>Membresía y actividad</h3>
-            </div>
-
-            <div className="profile-security-list">
-              <div className="profile-security-item">
-                <strong>Plan vigente</strong>
-                <span>{memberProfile?.plan ?? 'Sin plan activo'} · {memberProfile?.estado ?? 'Pendiente'}</span>
-              </div>
-              <div className="profile-security-item">
-                <strong>Vencimiento</strong>
-                <span>{memberProfile?.fechaVencimiento ? new Date(memberProfile.fechaVencimiento).toLocaleDateString('es-HN') : 'Sin fecha registrada'}</span>
-              </div>
-              <div className="profile-security-item">
-                <strong>Próxima reserva</strong>
-                <span>{upcomingReservations[0] ? `${upcomingReservations[0].servicio} · ${new Date(upcomingReservations[0].fecha).toLocaleString('es-HN')}` : 'No tienes reservas próximas'}</span>
-              </div>
-            </div>
-          </article>
-        ) : (
-          <article className="card profile-section-card profile-section-card-wide">
-            <div className="profile-section-head">
-              <span className="profile-kicker">Rutina</span>
-              <h3>Preferencias del entrenador</h3>
-            </div>
-
-            <div className="profile-security-list">
-              <div className="profile-security-item">
-                <strong>Disponibilidad semanal</strong>
-                <span>Configurada para mañanas y tardes entre lunes y sábado.</span>
-              </div>
-              <div className="profile-security-item">
-                <strong>Sesiones destacadas</strong>
-                <span>Clases grupales, seguimiento individual y control de reservas.</span>
-              </div>
-            </div>
-          </article>
-        )}
+          <div className="profile-toggle-list">
+            <ToggleRow
+              label="Modo mantenimiento"
+              description="Pausa acciones sensibles del panel mientras se revisa la operacion interna."
+              checked={maintenanceMode}
+              onChange={() => setMaintenanceMode((value) => !value)}
+            />
+            <ToggleRow
+              label="Registro de auditoria ampliado"
+              description="Guarda detalle extendido de movimientos administrativos y cambios criticos."
+              checked={auditLog}
+              onChange={() => setAuditLog((value) => !value)}
+            />
+          </div>
+        </article>
       </section>
     </div>
   );

@@ -1,136 +1,146 @@
 # FitHub Modelos
 
-Este archivo deja una base exportable para los entregables visuales. Puedes abrirlo en un visor compatible con Mermaid y exportarlo a PDF o imagen.
+Documento de referencia del dominio hotelero actual. Los diagramas reflejan la operacion del sistema despues de retirar el modelo de gimnasio, membresias y roles cliente/entrenador del flujo activo.
 
 ## Modelo Conceptual
 
 ```mermaid
 flowchart TD
-    Persona[Persona\n- id_persona\n- nombre\n- correo\n- direccion\n- fecha_nacimiento]
-    Telefono[Telefono\n- telefono]
-    Cliente[Cliente\n- fecha_registro]
-    Entrenador[Entrenador\n- especialidad\n- estado_laboral]
-    Sede[Sede\n- id_sede\n- nombre_sede\n- ubicacion]
-    Actividad[Actividad\n- id_actividad\n- nombre_actividad\n- descripcion\n- tipo]
-    Programacion[Programacion Actividad\n- id_programacion\n- horario\n- cupo_maximo\n- costo]
-    Membresia[Membresia\n- id_membresia\n- tipo_plan\n- fecha_inicio\n- fecha_vencimiento\n- costo\n- estado]
-    Reserva[Reserva\n- id_reserva\n- fecha_reserva\n- precio_aplicado\n- estado]
-    Pago[Pago\n- id_pago\n- monto\n- fecha_pago\n- metodo_pago\n- referencia]
-    Configuracion[Configuracion Operativa\n- id_config\n- ciudad_base\n- horas_anticipacion_reserva\n- umbral_ocupacion]
+    Huesped[Huesped\n- id_huesped\n- nombre_completo\n- correo\n- telefono\n- documento_identidad]
+    Hotel[Hotel\n- id_hotel\n- nombre_hotel\n- ciudad\n- direccion\n- estado]
+    Personal[Personal Hotel\n- id_personal\n- rol\n- estado\n- correo]
+    TipoHabitacion[Tipo Habitacion\n- id_tipo_habitacion\n- nombre_tipo\n- capacidad_base\n- tarifa_base]
+    Habitacion[Habitacion\n- id_habitacion\n- codigo_habitacion\n- nombre_habitacion\n- capacidad\n- tarifa_noche\n- estado]
+    Reserva[Reserva Hotel\n- id_reserva_hotel\n- check_in\n- check_out\n- adultos\n- ninos\n- estado\n- total_reserva]
+    Pago[Pago Hotel\n- id_pago_hotel\n- monto\n- metodo_pago\n- referencia\n- estado]
+    Bloqueo[Bloqueo Habitacion\n- id_bloqueo\n- fecha_inicio\n- fecha_fin\n- motivo]
+    Configuracion[Configuracion Hotelera\n- hora_check_in\n- hora_check_out\n- moneda\n- porcentaje_impuesto]
 
-    Persona -->|tiene| Telefono
-    Persona -->|puede ser| Cliente
-    Persona -->|puede ser| Entrenador
-    Sede -->|ofrece| Programacion
-    Actividad -->|se agenda en| Programacion
-    Entrenador -->|imparte| Programacion
-    Cliente -->|adquiere| Membresia
-    Cliente -->|realiza| Reserva
-    Programacion -->|recibe| Reserva
+    Hotel -->|opera| Personal
+    Hotel -->|administra| Habitacion
+    TipoHabitacion -->|clasifica| Habitacion
+    Huesped -->|realiza| Reserva
+    Hotel -->|recibe| Reserva
+    Habitacion -->|se asigna en| Reserva
     Reserva -->|genera| Pago
-    Membresia -->|recibe| Pago
-    Configuracion -->|rige| Programacion
+    Habitacion -->|puede registrar| Bloqueo
+    Configuracion -->|rige| Reserva
+    Configuracion -->|rige| Pago
 ```
 
 ## Modelo Logico
 
 ```mermaid
 erDiagram
-    PERSONAS ||--o{ PERSONA_TELEFONOS : posee
-    PERSONAS ||--o| CLIENTES : asume
-    PERSONAS ||--o| ENTRENADORES : asume
-    SEDES ||--o{ PROGRAMACION_ACTIVIDADES : contiene
-    ACTIVIDADES ||--o{ PROGRAMACION_ACTIVIDADES : define
-    ENTRENADORES ||--o{ PROGRAMACION_ACTIVIDADES : imparte
-    CLIENTES ||--o{ MEMBRESIAS : adquiere
-    CLIENTES ||--o{ RESERVAS : realiza
-    PROGRAMACION_ACTIVIDADES ||--o{ RESERVAS : recibe
-    RESERVAS ||--o{ PAGOS : liquida
-    MEMBRESIAS ||--o{ PAGOS : liquida
+    HUESPEDES ||--o{ RESERVAS_HOTEL : realiza
+    HOTELES ||--o{ PERSONAL_HOTEL : opera
+    HOTELES ||--o{ HABITACIONES : administra
+    TIPOS_HABITACION ||--o{ HABITACIONES : clasifica
+    HOTELES ||--o{ RESERVAS_HOTEL : recibe
+    HABITACIONES ||--o{ RESERVAS_HOTEL : asigna
+    RESERVAS_HOTEL ||--o{ PAGOS_HOTEL : liquida
+    HABITACIONES ||--o{ BLOQUEOS_HABITACION : bloquea
 
-    PERSONAS {
-      uuid id_persona PK
-      text nombre
+    HUESPEDES {
+      uuid id_huesped PK
+      text nombre_completo
       text correo UK
-      text direccion_ciudad
-      text direccion_colonia
-      text direccion_calle
-      date fecha_nacimiento
-    }
-
-    PERSONA_TELEFONOS {
-      uuid id_persona FK
       text telefono
+      text documento_identidad
+      text ciudad
+      text direccion
+      timestamptz fecha_registro
     }
 
-    CLIENTES {
-      uuid id_persona PK,FK
-      date fecha_registro
+    HOTELES {
+      uuid id_hotel PK
+      text nombre_hotel UK
+      text ciudad
+      text direccion
+      text telefono
+      text correo_contacto
+      int estrellas
+      text estado
     }
 
-    ENTRENADORES {
-      uuid id_persona PK,FK
-      text especialidad
-      text estado_laboral
+    PERSONAL_HOTEL {
+      uuid id_personal PK
+      uuid id_hotel FK
+      text nombre_completo
+      text correo UK
+      text telefono
+      text rol
+      text estado
     }
 
-    SEDES {
-      uuid id_sede PK
-      text nombre_sede UK
-      text ubicacion
-    }
-
-    ACTIVIDADES {
-      uuid id_actividad PK
-      text nombre_actividad UK
+    TIPOS_HABITACION {
+      uuid id_tipo_habitacion PK
+      text nombre_tipo UK
       text descripcion
-      text tipo
+      int capacidad_base
+      numeric tarifa_base
     }
 
-    PROGRAMACION_ACTIVIDADES {
-      uuid id_programacion PK
-      uuid id_sede FK
-      uuid id_actividad FK
-      uuid id_entrenador FK
-      timestamptz horario
-      int cupo_maximo
-      numeric costo
-    }
-
-    MEMBRESIAS {
-      uuid id_membresia PK
-      uuid id_cliente FK
-      text tipo_plan
-      date fecha_inicio
-      date fecha_vencimiento
-      numeric costo
+    HABITACIONES {
+      uuid id_habitacion PK
+      uuid id_hotel FK
+      uuid id_tipo_habitacion FK
+      text codigo_habitacion
+      text nombre_habitacion
+      int piso
+      int capacidad
+      numeric tarifa_noche
       text estado
     }
 
-    RESERVAS {
-      uuid id_reserva PK
-      uuid id_cliente FK
-      uuid id_programacion FK
-      timestamptz fecha_reserva
-      numeric precio_aplicado
+    RESERVAS_HOTEL {
+      uuid id_reserva_hotel PK
+      uuid id_huesped FK
+      uuid id_hotel FK
+      uuid id_habitacion FK
+      timestamptz check_in
+      timestamptz check_out
+      int adultos
+      int ninos
       text estado
+      text origen_reserva
+      numeric total_reserva
+      numeric anticipo
+      text observaciones
     }
 
-    PAGOS {
-      uuid id_pago PK
+    PAGOS_HOTEL {
+      uuid id_pago_hotel PK
+      uuid id_reserva_hotel FK
       numeric monto
-      timestamptz fecha_pago
       text metodo_pago
       text referencia
-      uuid id_reserva FK
-      uuid id_membresia FK
+      timestamptz fecha_pago
+      text estado
+    }
+
+    BLOQUEOS_HABITACION {
+      uuid id_bloqueo PK
+      uuid id_habitacion FK
+      timestamptz fecha_inicio
+      timestamptz fecha_fin
+      text motivo
+    }
+
+    CONFIGURACION_HOTELERA {
+      text id_config PK
+      time hora_check_in
+      time hora_check_out
+      text moneda
+      numeric porcentaje_impuesto
+      boolean permite_sobreventa
     }
 ```
 
 ## Observaciones de diseño
 
-- Generalizacion: `personas` se especializa en `clientes` y `entrenadores`.
-- Entidad asociativa: `reservas` conecta clientes con actividades programadas.
-- Atributo compuesto: direccion dividida en ciudad, colonia y calle.
-- Atributo multivaluado: `persona_telefonos` modela telefonos separados de `personas`.
-- PK compuesta recomendada para entrega final formal: `(id_persona, telefono)` en `persona_telefonos` si deseas enfatizar el multivaluado en la defensa escrita.
+- El huesped es la entidad principal de relacion comercial y reemplaza el antiguo concepto de cliente.
+- Las reservas se gestionan contra inventario fisico de habitaciones, no contra programaciones de actividades.
+- Los pagos siempre se registran contra una reserva hotelera; no existen membresias activas en el modelo actual.
+- El personal hotelero se administra por hotel y sirve como base operativa para recepcion, gerencia, limpieza, soporte y administracion.
+- La configuracion hotelera centraliza horarios operativos, moneda, impuestos y politica de sobreventa.

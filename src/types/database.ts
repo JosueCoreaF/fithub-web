@@ -29,3 +29,35 @@ export interface Reserva {
   estado: 'creada' | 'confirmada' | 'cancelada' | 'completada';
   precio_aplicado: number;
 }
+
+export interface Hotel {
+  id_hotel?: string;
+  nombre: string;
+  ubicacion: string;
+}
+
+export interface Habitacion {
+  id_habitacion?: string;
+  nombre: string;
+  descripcion: string;
+  categoria: 'estandar' | 'suite' | 'familiar';
+  id_hotel: string;
+}
+
+export interface Huesped {
+  id_huesped?: string;
+  nombre: string;
+  correo: string;
+  telefono?: string;
+  ciudad?: string;
+}
+
+export interface ReservaHotel {
+  id_reserva?: string;
+  id_huesped: string;
+  id_habitacion: string;
+  estado: 'pendiente' | 'confirmada' | 'cancelada' | 'check_in' | 'check_out';
+  tarifa_aplicada: number;
+  fecha_entrada: string;
+  fecha_salida: string;
+}

@@ -8,17 +8,16 @@ import { useUI, type ThemeMode } from '../context/UIContext';
 import { useAuth } from '../context/AuthContext';
 
 const pageMeta: Record<string, { title: string; subtitle: string }> = {
-  '/': { title: 'Panel', subtitle: 'Resumen operativo del gimnasio.' },
-  '/servicios': { title: 'Servicios', subtitle: 'Sesiones, cupos y demanda actual.' },
-  '/reservas': { title: 'Reservas', subtitle: 'Seguimiento diario de reservas y ocupación.' },
-  '/pagos': { title: 'Pagos', subtitle: 'Caja operativa, cobros registrados y seguimiento de ingresos.' },
-  '/membresia': { title: 'Membresía', subtitle: 'Estado del plan, vigencia y cobertura de pagos.' },
+  '/': { title: 'Panel', subtitle: 'Resumen operativo del hotel.' },
+  '/habitaciones': { title: 'Habitaciones', subtitle: 'Inventario, disponibilidad y ocupacion actual.' },
+  '/reservas': { title: 'Reservas', subtitle: 'Seguimiento diario de reservas, disponibilidad y ocupacion.' },
+  '/pagos': { title: 'Cobros', subtitle: 'Caja operativa, movimientos registrados y seguimiento de ingresos.' },
   '/usuarios': { title: 'Usuarios', subtitle: 'Perfiles operativos y configuracion base de la operacion.' },
-  '/miembros': { title: 'Miembros', subtitle: 'Gestión de membresías y actividad de clientes.' },
-  '/entrenadores': { title: 'Entrenadores', subtitle: 'Carga semanal, disponibilidad y equipo.' },
-  '/sedes': { title: 'Sedes', subtitle: 'Cobertura, actividad y detalle por ubicación.' },
+  '/huespedes': { title: 'Huespedes', subtitle: 'Gestion de huespedes y actividad de reservas.' },
+  '/personal': { title: 'Personal', subtitle: 'Equipo operativo, disponibilidad y carga semanal.' },
+  '/hoteles': { title: 'Hoteles', subtitle: 'Cobertura, ocupacion y detalle por propiedad.' },
   '/accesos': { title: 'Accesos', subtitle: 'Gestión de roles y cuentas con privilegios elevados.' },
-  '/perfil': { title: 'Perfil', subtitle: 'Identidad, preferencias y ajustes internos para administradores.' },
+  '/perfil': { title: 'Perfil', subtitle: 'Identidad, preferencias y ajustes internos del panel.' },
 };
 
 const themes: Array<{ value: ThemeMode; label: string }> = [
@@ -45,41 +44,9 @@ export const DashboardLayout: React.FC = () => {
       return { title: 'Ingresos', subtitle: 'Visión ejecutiva de ventas, cobranza y flujo registrado.' };
     }
 
-    if (role === 'client' && location.pathname === '/') {
-      return { title: 'Mi panel', subtitle: 'Tus reservas, membresía y próximos entrenamientos.' };
-    }
-
-    if (role === 'client' && location.pathname === '/reservas') {
-      return { title: 'Mis reservas', subtitle: 'Seguimiento de clases reservadas, estado y próximos horarios.' };
-    }
-
-    if (role === 'client' && location.pathname === '/pagos') {
-      return { title: 'Mis pagos', subtitle: 'Historial de cobros, estado de membresía y movimientos vinculados a tu cuenta.' };
-    }
-
-    if (role === 'client' && location.pathname === '/membresia') {
-      return { title: 'Mi membresía', subtitle: 'Cobertura pagada, vigencia del plan y actividad vinculada a tu cuenta.' };
-    }
-
-    if (role === 'client' && location.pathname === '/perfil') {
-      return { title: 'Mi perfil', subtitle: 'Tus datos personales, preferencias y estado de membresía.' };
-    }
-
-    if (role === 'trainer' && location.pathname === '/') {
-      return { title: 'Mi panel', subtitle: 'Agenda, alumnos y pendientes de tu jornada.' };
-    }
-
-    if (role === 'trainer' && location.pathname === '/reservas') {
-      return { title: 'Mi agenda', subtitle: 'Sesiones asignadas, reservas y ocupación del día.' };
-    }
-
-    if (role === 'trainer' && location.pathname === '/perfil') {
-      return { title: 'Mi perfil', subtitle: 'Identidad, disponibilidad y ajustes de trabajo.' };
-    }
-
-    return pageMeta[location.pathname] ?? { title: 'FitHub', subtitle: 'Administración central.' };
+    return pageMeta[location.pathname] ?? { title: 'FitHub', subtitle: 'Administracion hotelera.' };
   }, [location.pathname, role]);
-  const roleLabel = role === 'super_admin' ? 'Super admin' : role === 'admin' ? 'Admin' : role === 'trainer' ? 'Entrenador' : 'Cliente';
+  const roleLabel = role === 'super_admin' ? 'Super admin' : 'Admin';
 
   return (
     <div className={`dashboard-root ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -91,7 +58,7 @@ export const DashboardLayout: React.FC = () => {
               Menu
             </button>
             <div className="topbar-heading">
-              <span className="topbar-kicker">{role === 'client' ? 'FitHub Cliente' : role === 'super_admin' ? 'FitHub Dirección' : 'FitHub Admin'}</span>
+              <span className="topbar-kicker">{role === 'super_admin' ? 'FitHub Direccion' : 'FitHub Hotel'}</span>
               <strong>{currentPage.title}</strong>
               <span>{currentPage.subtitle}</span>
             </div>

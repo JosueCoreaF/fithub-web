@@ -1,20 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { assignAccessRole, createAccessInvitation, fetchAccessAudit, fetchAccessInvitations, fetchAccessProfiles, type AccessAuditEntry, type AccessInvitation, type AccessProfile } from '../lib/api';
+import { assignAccessRole, createAccessInvitation, fetchAccessAudit, fetchAccessInvitations, fetchAccessProfiles, type AccessAuditEntry, type AccessInvitation, type AccessInvitationRole, type AccessProfile } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
-const roleOptions: Array<{ value: AccessProfile['role']; label: string }> = [
-  { value: 'trainer', label: 'Entrenador' },
+const invitationRoleOptions: Array<{ value: AccessInvitationRole; label: string }> = [
   { value: 'admin', label: 'Admin' },
   { value: 'super_admin', label: 'Super admin' },
 ];
 
-const roleLabel = (role: AccessProfile['role']) => role === 'super_admin' ? 'Super admin' : role === 'admin' ? 'Admin' : 'Entrenador';
+const roleOptions: Array<{ value: AccessProfile['role']; label: string }> = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'super_admin', label: 'Super admin' },
+];
+
+const roleLabel = (role: AccessProfile['role']) => role === 'super_admin' ? 'Super admin' : 'Admin';
 
 const profileTypeLabel: Record<string, string> = {
-  cliente: 'Cliente',
-  entrenador: 'Entrenador',
-  cliente_y_entrenador: 'Cliente y entrenador',
-  persona: 'Persona',
+  cliente: 'Huésped',
+  entrenador: 'Personal',
+  cliente_y_entrenador: 'Huésped y personal',
+  persona: 'Registro base',
   sin_enlace: 'Sin enlace',
 };
 
@@ -44,7 +48,7 @@ export const SuperAdminAccesos: React.FC = () => {
   const [draftRoles, setDraftRoles] = useState<Record<string, AccessProfile['role']>>({});
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteFullName, setInviteFullName] = useState('');
-  const [inviteRole, setInviteRole] = useState<AccessProfile['role']>('trainer');
+  const [inviteRole, setInviteRole] = useState<AccessInvitationRole>('admin');
   const [inviting, setInviting] = useState(false);
 
   const loadProfiles = async () => {
@@ -134,7 +138,7 @@ export const SuperAdminAccesos: React.FC = () => {
       setFeedback(`Invitación creada para ${invitation.email}. Comparte este enlace: ${inviteUrl}`);
       setInviteEmail('');
       setInviteFullName('');
-      setInviteRole('trainer');
+      setInviteRole('admin');
     } catch (inviteError) {
       setError(inviteError instanceof Error ? inviteError.message : 'No se pudo crear la invitación.');
     } finally {
@@ -176,8 +180,8 @@ export const SuperAdminAccesos: React.FC = () => {
           <form className="super-admin-invite-form" onSubmit={handleCreateInvitation}>
             <input className="input" type="email" placeholder="correo@dominio.com" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required />
             <input className="input" placeholder="Nombre completo" value={inviteFullName} onChange={(event) => setInviteFullName(event.target.value)} />
-            <select className="input" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AccessProfile['role'])}>
-              {roleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <select className="input" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as AccessInvitationRole)}>
+              {invitationRoleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <button className="btn" type="submit" disabled={inviting}>{inviting ? 'Creando...' : 'Crear invitación'}</button>
           </form>
@@ -217,7 +221,6 @@ export const SuperAdminAccesos: React.FC = () => {
           <input className="input" placeholder="Buscar por nombre o correo" value={query} onChange={(event) => setQuery(event.target.value)} />
           <select className="input" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as 'all' | AccessProfile['role'])}>
             <option value="all">Todos los roles</option>
-            <option value="trainer">Entrenadores</option>
             <option value="admin">Admins</option>
             <option value="super_admin">Super admins</option>
           </select>

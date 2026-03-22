@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 
-export type UserRole = 'client' | 'trainer' | 'admin' | 'super_admin';
+export type UserRole = 'admin' | 'super_admin';
 
 type AuthContextValue = {
   session: Session | null;
@@ -10,8 +10,6 @@ type AuthContextValue = {
   loading: boolean;
   role: UserRole;
   isAdmin: boolean;
-  isClient: boolean;
-  isTrainer: boolean;
   isSuperAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (fullName: string, email: string, password: string, role: UserRole) => Promise<void>;
@@ -54,7 +52,7 @@ const normalizeAuthError = (error: unknown, action: 'signup' | 'signin' | 'magic
 };
 
 const resolveRole = (user: User | null): UserRole => {
-  if (!user) return 'trainer';
+  if (!user) return 'admin';
 
   const role = user.app_metadata?.role ?? user.user_metadata?.role;
 
@@ -66,11 +64,7 @@ const resolveRole = (user: User | null): UserRole => {
     return 'admin';
   }
 
-  if (role === 'client' || user.email?.endsWith('@fithub.client')) {
-    return 'client';
-  }
-
-  return 'trainer';
+  return 'admin';
 };
 
 const isAdminRole = (role: UserRole) => role === 'admin' || role === 'super_admin';
@@ -117,8 +111,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     loading,
     role,
     isAdmin: isAdminRole(role),
-    isClient: role === 'client',
-    isTrainer: role === 'trainer',
     isSuperAdmin: role === 'super_admin',
     signIn: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -163,7 +155,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     updateProfile: async ({ email, fullName, phone, role: nextRole, preferences }) => {
       const safeRole = role === 'super_admin'
         ? nextRole
-        : ((session?.user.app_metadata?.role ?? session?.user.user_metadata?.role ?? 'trainer') as UserRole);
+        : ((session?.user.app_metadata?.role ?? session?.user.user_metadata?.role ?? role) as UserRole);
 
       const metadata = {
         ...(session?.user.user_metadata ?? {}),

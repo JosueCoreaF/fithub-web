@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabaseClient';
 
-export type EntityImageKind = 'profile' | 'service' | 'trainer' | 'sede';
+export type EntityImageKind = 'profile' | 'habitacion' | 'personal' | 'hotel' | 'service' | 'trainer' | 'sede';
 type ImageSource = 'remote' | 'local' | null;
 
-const storageKey = (kind: EntityImageKind, entityId: string) => `fithub-image:${kind}:${entityId}`;
+const normalizeEntityImageKind = (kind: EntityImageKind) => {
+  if (kind === 'habitacion') return 'service';
+  if (kind === 'personal') return 'trainer';
+  if (kind === 'hotel') return 'sede';
+  return kind;
+};
+
+const storageKey = (kind: EntityImageKind, entityId: string) => `fithub-image:${normalizeEntityImageKind(kind)}:${entityId}`;
 const MEDIA_BUCKET = import.meta.env.VITE_MEDIA_BUCKET ?? 'fithub-media';
-const buildRemotePath = (kind: EntityImageKind, entityId: string) => `${kind}/${entityId}.jpg`;
+const buildRemotePath = (kind: EntityImageKind, entityId: string) => `${normalizeEntityImageKind(kind)}/${entityId}.jpg`;
 
 export const getStoredImage = (kind: EntityImageKind, entityId: string) => {
   if (!entityId || typeof window === 'undefined') return null;

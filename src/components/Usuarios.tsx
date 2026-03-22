@@ -9,7 +9,7 @@ import {
   type OperationalUserInput,
   type OperationalUserView,
 } from '../lib/api';
-import { useGymData } from '../context/GymDataContext';
+import { useHotelData } from '../context/HotelDataContext';
 
 const defaultSettings: OperationalSettings = {
   ciudadBase: 'Tegucigalpa',
@@ -35,14 +35,14 @@ const emptyForm: OperationalUserInput = {
 };
 
 const roleLabel: Record<OperationalUserView['tipoPerfil'], string> = {
-  cliente: 'Cliente',
-  entrenador: 'Entrenador',
-  cliente_y_entrenador: 'Cliente y entrenador',
-  persona: 'Persona',
+  cliente: 'Huesped',
+  entrenador: 'Personal',
+  cliente_y_entrenador: 'Huesped y personal',
+  persona: 'Registro base',
 };
 
 export const Usuarios: React.FC = () => {
-  const { data, loading, error, refresh } = useGymData();
+  const { data, loading, error, refresh } = useHotelData();
   const usuarios = data?.usuariosView ?? [];
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'todos' | OperationalUserView['tipoPerfil']>('todos');
@@ -80,9 +80,9 @@ export const Usuarios: React.FC = () => {
 
   const summary = useMemo(() => ({
     total: usuarios.length,
-    clientes: usuarios.filter((usuario) => usuario.esCliente).length,
-    entrenadores: usuarios.filter((usuario) => usuario.esEntrenador).length,
-    personas: usuarios.filter((usuario) => usuario.tipoPerfil === 'persona').length,
+    huespedes: usuarios.filter((usuario) => usuario.esCliente).length,
+    personal: usuarios.filter((usuario) => usuario.esEntrenador).length,
+    registrosBase: usuarios.filter((usuario) => usuario.tipoPerfil === 'persona').length,
   }), [usuarios]);
 
   const openCreate = () => {
@@ -175,10 +175,9 @@ export const Usuarios: React.FC = () => {
       { header: 'Colonia', value: (user) => user.colonia ?? '' },
       { header: 'Calle', value: (user) => user.calle ?? '' },
       { header: 'Fecha Nacimiento', value: (user) => user.fechaNacimiento ?? '' },
-      { header: 'Es Cliente', value: (user) => user.esCliente ? 'Si' : 'No' },
-      { header: 'Es Entrenador', value: (user) => user.esEntrenador ? 'Si' : 'No' },
+      { header: 'Perfil Huesped', value: (user) => user.esCliente ? 'Si' : 'No' },
+      { header: 'Perfil Personal', value: (user) => user.esEntrenador ? 'Si' : 'No' },
       { header: 'Tipo Perfil', value: (user) => roleLabel[user.tipoPerfil] },
-      { header: 'Plan Actual', value: (user) => user.planActual ?? '' },
       { header: 'Especialidad', value: (user) => user.especialidad ?? '' },
       { header: 'Estado Laboral', value: (user) => user.estadoLaboral ?? '' },
       { header: 'Fecha Registro', value: (user) => user.fechaRegistro ?? '' },
@@ -190,7 +189,7 @@ export const Usuarios: React.FC = () => {
       <div className="users-header">
         <div>
           <h2>Usuarios</h2>
-          <p className="muted">Directorio operativo de personas, clientes y entrenadores con datos alineados a la base operativa.</p>
+          <p className="muted">Directorio operativo de personas, huéspedes y personal con datos alineados a la base hotelera.</p>
         </div>
         <div className="header-actions">
           <button className="btn ghost" onClick={handleExportUsers} disabled={filteredUsers.length === 0}>
@@ -208,9 +207,9 @@ export const Usuarios: React.FC = () => {
 
       <section className="users-summary-grid">
         <article className="card users-summary-card"><span>Perfiles totales</span><strong>{summary.total}</strong></article>
-        <article className="card users-summary-card"><span>Clientes</span><strong>{summary.clientes}</strong></article>
-        <article className="card users-summary-card"><span>Entrenadores</span><strong>{summary.entrenadores}</strong></article>
-        <article className="card users-summary-card"><span>Solo persona</span><strong>{summary.personas}</strong></article>
+        <article className="card users-summary-card"><span>Huéspedes</span><strong>{summary.huespedes}</strong></article>
+        <article className="card users-summary-card"><span>Personal</span><strong>{summary.personal}</strong></article>
+        <article className="card users-summary-card"><span>Solo registro base</span><strong>{summary.registrosBase}</strong></article>
       </section>
 
       <section className="users-top-grid">
@@ -219,10 +218,10 @@ export const Usuarios: React.FC = () => {
             <input className="input" placeholder="Buscar por nombre, correo, direccion o telefono" value={query} onChange={(event) => setQuery(event.target.value)} />
             <select className="input" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as typeof typeFilter)}>
               <option value="todos">Todos los perfiles</option>
-              <option value="cliente">Clientes</option>
-              <option value="entrenador">Entrenadores</option>
-              <option value="cliente_y_entrenador">Cliente y entrenador</option>
-              <option value="persona">Solo persona</option>
+              <option value="cliente">Huéspedes</option>
+              <option value="entrenador">Personal</option>
+              <option value="cliente_y_entrenador">Huésped y personal</option>
+              <option value="persona">Solo registro base</option>
             </select>
           </div>
 
@@ -252,7 +251,7 @@ export const Usuarios: React.FC = () => {
                     <td>{usuario.telefono || 'Sin telefono'}</td>
                     <td>
                       <div className="users-cell-stack">
-                        <strong>{usuario.planActual ?? usuario.especialidad ?? 'Sin detalle'}</strong>
+                        <strong>{usuario.especialidad ?? (usuario.esCliente ? 'Huésped registrado' : 'Sin detalle')}</strong>
                         <span>{usuario.estadoLaboral ?? usuario.fechaRegistro ?? 'Sin estado adicional'}</span>
                       </div>
                     </td>
@@ -313,8 +312,8 @@ export const Usuarios: React.FC = () => {
             </label>
             <label className="profile-toggle-row">
               <div>
-                <strong>Permitir edicion desde perfil entrenador</strong>
-                <span>Define si los entrenadores pueden ajustar sus datos operativos personales.</span>
+                <strong>Permitir edición desde perfil del personal</strong>
+                <span>Define si el personal puede ajustar sus datos operativos personales.</span>
               </div>
               <button type="button" className={`profile-toggle ${settings.permitirEdicionEntrenador ? 'active' : ''}`} onClick={() => setSettings((current) => ({ ...current, permitirEdicionEntrenador: !current.permitirEdicionEntrenador }))}>
                 <span />
@@ -346,11 +345,11 @@ export const Usuarios: React.FC = () => {
 
               <label className="users-checkbox-row">
                 <input type="checkbox" checked={form.esCliente} onChange={(event) => setForm((current) => ({ ...current, esCliente: event.target.checked }))} />
-                <span>Crear o mantener perfil de cliente</span>
+                <span>Crear o mantener perfil de huésped</span>
               </label>
               <label className="users-checkbox-row">
                 <input type="checkbox" checked={form.esEntrenador} onChange={(event) => setForm((current) => ({ ...current, esEntrenador: event.target.checked }))} />
-                <span>Crear o mantener perfil de entrenador</span>
+                <span>Crear o mantener perfil de personal</span>
               </label>
 
               {form.esEntrenador && (

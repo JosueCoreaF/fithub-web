@@ -24,7 +24,7 @@ create table if not exists public.access_invitations (
   accepted_at timestamptz,
   created_at timestamptz not null default now(),
   metadata jsonb not null default '{}'::jsonb,
-  constraint access_invitations_role_check check (role in ('trainer', 'admin', 'super_admin')),
+  constraint access_invitations_role_check check (role in ('admin', 'super_admin')),
   constraint access_invitations_status_check check (status in ('pending', 'accepted', 'expired', 'revoked'))
 );
 
@@ -41,7 +41,8 @@ as $$
         raw_app_meta_data ->> 'role',
         raw_user_meta_data ->> 'role',
         case when email ilike '%@fithub.superadmin' then 'super_admin' end,
-        'trainer'
+        case when email ilike '%@fithub.admin' then 'admin' end,
+        'admin'
       ) = 'super_admin'
       from auth.users
       where id = requester_id
@@ -64,12 +65,12 @@ as $$
         raw_user_meta_data ->> 'role',
         case when email ilike '%@fithub.superadmin' then 'super_admin' end,
         case when email ilike '%@fithub.admin' then 'admin' end,
-        'trainer'
+        'admin'
       )
       from auth.users
       where id = target_user_id
     ),
-    'trainer'
+    'admin'
   );
 $$;
 
@@ -87,7 +88,7 @@ as $$
     raw_user_meta_data ->> 'role',
     case when email ilike '%@fithub.superadmin' then 'super_admin' end,
     case when email ilike '%@fithub.admin' then 'admin' end,
-    'trainer'
+    'admin'
   ) = 'super_admin';
 $$;
 
@@ -123,16 +124,13 @@ begin
       u.raw_user_meta_data ->> 'role',
       case when u.email::text ilike '%@fithub.superadmin' then 'super_admin' end,
       case when u.email::text ilike '%@fithub.admin' then 'admin' end,
-      'trainer'
+      'admin'
     ) as role,
     p.id_persona as persona_id,
     p.nombre as persona_nombre,
     pt.telefono,
     case
-      when e.id_persona is not null and c.id_persona is not null then 'cliente_y_entrenador'
-      when e.id_persona is not null then 'entrenador'
-      when c.id_persona is not null then 'cliente'
-      when p.id_persona is not null then 'persona'
+      when p.id_persona is not null then 'perfil_operativo'
       else 'sin_enlace'
     end as profile_type,
     (u.email_confirmed_at is not null) as email_confirmed,
@@ -140,8 +138,6 @@ begin
   from auth.users u
   left join public.personas p on lower(p.correo) = lower(u.email::text)
   left join public.persona_telefonos pt on pt.id_persona = p.id_persona
-  left join public.entrenadores e on e.id_persona = p.id_persona
-  left join public.clientes c on c.id_persona = p.id_persona
   order by coalesce(u.last_sign_in_at, u.created_at) desc nulls last, u.email asc;
 end;
 $$;
@@ -265,7 +261,7 @@ begin
     raise exception 'El correo es obligatorio.';
   end if;
 
-  if normalized_role not in ('trainer', 'admin', 'super_admin') then
+  if normalized_role not in ('admin', 'super_admin') then
     raise exception 'Rol no permitido: %', target_role;
   end if;
 
@@ -433,7 +429,7 @@ begin
 
   normalized_role := lower(trim(next_role));
 
-  if normalized_role not in ('trainer', 'admin', 'super_admin') then
+  if normalized_role not in ('admin', 'super_admin') then
     raise exception 'Rol no permitido: %', next_role;
   end if;
 

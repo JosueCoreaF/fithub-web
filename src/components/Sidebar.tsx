@@ -73,36 +73,20 @@ const IconChevron = ({ collapsed }: { collapsed: boolean }) => (
 );
 
 const items: Array<{ to: string; label: string; icon: React.FC; roles: UserRole[] }> = [
-  { to: '/', label: 'Panel', icon: IconPanel, roles: ['client', 'trainer', 'admin', 'super_admin'] },
-  { to: '/servicios', label: 'Servicios', icon: IconServices, roles: ['admin', 'super_admin'] },
-  { to: '/reservas', label: 'Reservas', icon: IconReservations, roles: ['client', 'trainer', 'admin', 'super_admin'] },
-  { to: '/pagos', label: 'Pagos', icon: IconPayments, roles: ['client', 'admin', 'super_admin'] },
-  { to: '/membresia', label: 'Miembros', icon: IconMembers, roles: ['client'] },
+  { to: '/', label: 'Panel', icon: IconPanel, roles: ['admin', 'super_admin'] },
+  { to: '/habitaciones', label: 'Habitaciones', icon: IconServices, roles: ['admin', 'super_admin'] },
+  { to: '/reservas', label: 'Reservas', icon: IconReservations, roles: ['admin', 'super_admin'] },
+  { to: '/pagos', label: 'Cobros', icon: IconPayments, roles: ['admin', 'super_admin'] },
   { to: '/usuarios', label: 'Usuarios', icon: IconUsers, roles: ['admin', 'super_admin'] },
-  { to: '/miembros', label: 'Miembros', icon: IconMembers, roles: ['admin', 'super_admin'] },
-  { to: '/entrenadores', label: 'Entrenadores', icon: IconTrainers, roles: ['admin', 'super_admin'] },
-  { to: '/sedes', label: 'Sedes', icon: IconLocations, roles: ['admin', 'super_admin'] },
+  { to: '/huespedes', label: 'Huespedes', icon: IconMembers, roles: ['admin', 'super_admin'] },
+  { to: '/personal', label: 'Personal', icon: IconTrainers, roles: ['admin', 'super_admin'] },
+  { to: '/hoteles', label: 'Hoteles', icon: IconLocations, roles: ['admin', 'super_admin'] },
   { to: '/accesos', label: 'Accesos', icon: IconShield, roles: ['super_admin'] },
-  { to: '/perfil', label: 'Perfil', icon: IconProfile, roles: ['client', 'trainer', 'admin', 'super_admin'] },
+  { to: '/perfil', label: 'Perfil', icon: IconProfile, roles: ['admin', 'super_admin'] },
 ];
 
 const getItemLabel = (path: string, role: UserRole, fallback: string) => {
   if (role === 'super_admin' && path === '/pagos') return 'Ingresos';
-  if (role !== 'trainer') return fallback;
-
-  if (path === '/') return 'Mi panel';
-  if (path === '/reservas') return 'Mi agenda';
-  if (path === '/perfil') return 'Mi perfil';
-
-  return fallback;
-};
-
-const getClientItemLabel = (path: string, fallback: string) => {
-  if (path === '/') return 'Mi panel';
-  if (path === '/membresia') return 'Mi membresía';
-  if (path === '/pagos') return 'Mis pagos';
-  if (path === '/reservas') return 'Mis reservas';
-  if (path === '/perfil') return 'Mi perfil';
   return fallback;
 };
 
@@ -132,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
             <div className="brand-badge">FH</div>
             <div className="brand-copy">
               <strong className="brand">FitHub</strong>
-              <span>Control Center</span>
+              <span>Hotel Control</span>
             </div>
           </div>
 
@@ -145,13 +129,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
                 className={({ isActive }) => isActive ? 'menu-item active' : 'menu-item'}
               >
                 <span className="menu-icon"><item.icon /></span>
-                <span className="menu-label">{role === 'client' ? getClientItemLabel(item.to, item.label) : getItemLabel(item.to, role, item.label)}</span>
+                <span className="menu-label">{getItemLabel(item.to, role, item.label)}</span>
               </NavLink>
             ))}
           </nav>
 
           <div className="sidebar-footer">
-            <span>Frontend admin</span>
+            <span>Panel operativo</span>
           </div>
         </aside>
 
@@ -169,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, mobileOpen, onClose
                 to={item.to}
                 onClick={onCloseMobile}
                 className={({ isActive }) => isActive ? 'sidebar-rail-item active' : 'sidebar-rail-item'}
-                title={role === 'client' ? getClientItemLabel(item.to, item.label) : getItemLabel(item.to, role, item.label)}
+                title={getItemLabel(item.to, role, item.label)}
               >
                 <span className="sidebar-rail-icon"><item.icon /></span>
               </NavLink>

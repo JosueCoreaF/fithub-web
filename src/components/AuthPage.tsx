@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, type UserRole } from '../context/AuthContext';
-import { consumeAccessInvitation, ensureClientProfile, validateAccessInvitation, type InvitationValidation } from '../lib/api';
+import { consumeAccessInvitation, validateAccessInvitation, type InvitationValidation } from '../lib/api';
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'recovery';
 
@@ -9,10 +9,9 @@ export const AuthPage: React.FC = () => {
   const location = useLocation();
   const { session, loading, signIn, signUp, sendMagicLink, requestPasswordReset, updatePassword } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
-  const [role, setRole] = useState<UserRole>('client');
+  const [role, setRole] = useState<UserRole>('admin');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [birthDate, setBirthDate] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -96,16 +95,15 @@ export const AuthPage: React.FC = () => {
       if (mode === 'login') {
         await signIn(email, password);
       } else if (mode === 'register') {
-        const signupRole = isInvitationRegister ? invitation?.role ?? 'trainer' : 'client';
+        if (!isInvitationRegister) {
+          throw new Error('El registro abierto esta deshabilitado. Usa una invitacion emitida por un super admin.');
+        }
+
+        const signupRole = invitation?.role ?? 'admin';
         await signUp(fullName, email, password, signupRole);
 
-        if (inviteToken && isInvitationRegister) {
-          await consumeAccessInvitation(inviteToken, email, fullName);
-          setMessage('Cuenta invitada creada. Revisa tu correo para confirmar el acceso y luego inicia sesión.');
-        } else {
-          await ensureClientProfile({ nombre: fullName, correo: email, fechaNacimiento: birthDate });
-          setMessage('Cuenta de cliente creada. Revisa tu correo para confirmar el acceso y luego inicia sesión.');
-        }
+        await consumeAccessInvitation(inviteToken!, email, fullName);
+        setMessage('Cuenta creada desde invitacion. Revisa tu correo para confirmar el acceso y luego inicia sesion.');
       } else if (mode === 'forgot') {
         await requestPasswordReset(email);
         setMessage('Te enviamos un enlace para restablecer tu contraseña.');
@@ -159,28 +157,28 @@ export const AuthPage: React.FC = () => {
 
       <main className="auth-layout">
         <section className="auth-copy-card">
-          <span className="auth-kicker">Portal FitHub</span>
-          <h1>Acceso unificado para clientes, entrenadores, admins y super admins.</h1>
+          <span className="auth-kicker">Portal Hotelero FitHub</span>
+          <h1>Acceso del panel hotelero para administradores y super admins.</h1>
           <p>
-            Inicia sesión, crea tu cuenta de cliente, acepta una invitación segura o recupera tu contraseña desde un solo acceso.
+            Inicia sesion, activa accesos por invitacion segura o recupera tu contrasena desde un unico punto de entrada para la operacion hotelera.
           </p>
 
           <div className="auth-feature-list">
             <article className="auth-feature-item">
               <strong>Inicio seguro</strong>
-              <span>Correo y contraseña para sesiones persistentes del panel.</span>
+              <span>Correo y contrasena para sesiones persistentes del panel operativo.</span>
             </article>
             <article className="auth-feature-item">
-              <strong>Registro de clientes</strong>
-              <span>El alta pública crea cuentas de cliente; entrenadores, admins y super admins se activan mediante invitación segura.</span>
+              <strong>Accesos por invitacion</strong>
+              <span>Admins y super admins mantienen un flujo controlado mediante invitaciones seguras.</span>
+            </article>
+            <article className="auth-feature-item">
+              <strong>Acceso administrativo</strong>
+              <span>El registro abierto esta deshabilitado para mantener el panel limitado a cuentas internas.</span>
             </article>
             <article className="auth-feature-item">
               <strong>Enlace mágico</strong>
-              <span>Opción de acceso inmediato sin escribir contraseña en ese momento.</span>
-            </article>
-            <article className="auth-feature-item">
-              <strong>Recuperación simple</strong>
-              <span>Restablece tu contraseña desde un enlace enviado directamente a tu correo.</span>
+              <span>Opcion de acceso inmediato sin escribir contrasena en ese momento.</span>
             </article>
           </div>
         </section>
@@ -188,8 +186,8 @@ export const AuthPage: React.FC = () => {
         <section className="auth-panel">
           <div className="auth-panel-head">
             <div>
-              <span className="auth-kicker">FitHub Admin</span>
-              <h2>{mode === 'login' ? 'Iniciar sesión' : mode === 'register' ? 'Crear cuenta' : mode === 'forgot' ? 'Olvidé mi contraseña' : 'Nueva contraseña'}</h2>
+              <span className="auth-kicker">FitHub Hotel</span>
+              <h2>{mode === 'login' ? 'Iniciar sesion' : mode === 'register' ? 'Activar acceso' : mode === 'forgot' ? 'Olvide mi contrasena' : 'Nueva contrasena'}</h2>
             </div>
 
             <div className="auth-tabs" role="tablist" aria-label="Modo de autenticación">
@@ -224,25 +222,10 @@ export const AuthPage: React.FC = () => {
                 {isInvitationRegister ? (
                   <div className="auth-field">
                     <span>Rol asignado por invitación</span>
-                    <div className="auth-feedback success">{role === 'super_admin' ? 'Super admin' : role === 'admin' ? 'Admin' : role === 'trainer' ? 'Entrenador' : 'Cliente'}</div>
+                    <div className="auth-feedback success">{role === 'super_admin' ? 'Super admin' : role === 'admin' ? 'Admin' : 'Acceso operativo'}</div>
                   </div>
                 ) : (
-                  <>
-                    <div className="auth-field">
-                      <span>Rol inicial</span>
-                      <div className="auth-feedback success">Cliente</div>
-                    </div>
-                    <label className="auth-field">
-                      <span>Fecha de nacimiento</span>
-                      <input
-                        className="input"
-                        type="date"
-                        value={birthDate}
-                        onChange={(event) => setBirthDate(event.target.value)}
-                        required
-                      />
-                    </label>
-                  </>
+                  <div className="auth-feedback error">Necesitas una invitacion activa para crear una cuenta administrativa.</div>
                 )}
               </>
             )}
@@ -254,7 +237,7 @@ export const AuthPage: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="admin@fithub.admin"
+                placeholder="admin@hotel.fithub"
                 required={mode !== 'recovery'}
                 disabled={mode === 'recovery' || isInvitationRegister}
               />
@@ -294,7 +277,7 @@ export const AuthPage: React.FC = () => {
 
             <div className="auth-actions">
               <button className="btn auth-submit" type="submit" disabled={submitting}>
-                {submitting ? 'Procesando...' : mode === 'login' ? 'Entrar al panel' : mode === 'register' ? 'Crear cuenta' : mode === 'forgot' ? 'Enviar enlace de recuperación' : 'Actualizar contraseña'}
+                {submitting ? 'Procesando...' : mode === 'login' ? 'Entrar al panel' : mode === 'register' ? 'Activar acceso' : mode === 'forgot' ? 'Enviar enlace de recuperacion' : 'Actualizar contrasena'}
               </button>
               {mode === 'login' && (
                 <>

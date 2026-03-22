@@ -747,7 +747,8 @@ code {
 .dashboard-route-stage { min-width:0; animation: route-fade .48s cubic-bezier(.22, 1, .36, 1) both }
 .dashboard-route-stage > * { min-width:0 }
 .dashboard-route-stage > * > * {
-  opacity: 0;
+  opacity: 1;
+  transform: translateY(0) scale(1);
   animation: section-reveal .56s cubic-bezier(.22, 1, .36, 1) both;
 }
 .dashboard-route-stage > * > *:nth-child(1) { animation-delay: .04s }
@@ -756,6 +757,15 @@ code {
 .dashboard-route-stage > * > *:nth-child(4) { animation-delay: .22s }
 .dashboard-route-stage > * > *:nth-child(5) { animation-delay: .28s }
 .dashboard-route-stage > * > *:nth-child(6) { animation-delay: .34s }
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-route-stage,
+  .dashboard-route-stage > * > * {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
 .dashboard-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px }
 .dashboard-header h2 { margin:0; color: var(--text-h) }
 

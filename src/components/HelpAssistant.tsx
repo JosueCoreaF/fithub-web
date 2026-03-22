@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useGymData } from '../context/GymDataContext';
+import { useHotelData } from '../context/HotelDataContext';
 import { downloadCsv } from '../lib/export';
 
 type ChatMessage = {
@@ -15,7 +15,7 @@ type AssistantReply = {
   actionLabel?: string;
   path?: string;
   command?: 'signout';
-  exportType?: 'reservas' | 'miembros' | 'pagos' | 'usuarios';
+  exportType?: 'reservas' | 'huespedes' | 'pagos' | 'usuarios';
 };
 
 const SparkIcon = () => (
@@ -24,72 +24,50 @@ const SparkIcon = () => (
   </svg>
 );
 
-const formatDateTime = (value: string) => new Date(value).toLocaleString('es-HN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-
 export const HelpAssistant: React.FC = () => {
   const navigate = useNavigate();
-  const { user, role, isClient, isTrainer, signOut } = useAuth();
-  const { data } = useGymData();
+  const { signOut } = useAuth();
+  const { data } = useHotelData();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [pendingAction, setPendingAction] = useState<{ label: string; path?: string; command?: 'signout'; exportType?: 'reservas' | 'miembros' | 'pagos' | 'usuarios' } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ label: string; path?: string; command?: 'signout'; exportType?: 'reservas' | 'huespedes' | 'pagos' | 'usuarios' } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      text: 'Estoy listo para ayudarte con reservas, pagos, membresías, sedes y uso del panel. Pregúntame algo concreto o usa una sugerencia rápida.',
+      text: 'Estoy listo para ayudarte con reservas, cobros, hoteles, huéspedes, personal y navegación del panel. Pregúntame algo concreto o usa una sugerencia rápida.',
     },
   ]);
 
-  const quickPrompts = useMemo(() => {
-    if (isClient) {
-      return ['¿Cuál es mi próxima reserva?', '¿Cuándo vence mi membresía?', '¿Cómo reservo una sesión?', 'Exporta mis reservas', 'Quiero cerrar sesión'];
-    }
+  const quickPrompts = useMemo(
+    () => ['¿Qué está pendiente hoy?', '¿Qué hotel tiene más movimiento?', '¿Dónde reviso pagos?', 'Exporta huéspedes', 'Quiero cerrar sesión'],
+    [],
+  );
 
-    if (isTrainer) {
-      return ['¿Qué tengo hoy?', '¿Hay reservas pendientes?', '¿Dónde veo mi agenda?', 'Exporta reservas', 'Quiero cerrar sesión'];
-    }
-
-    return ['¿Qué está pendiente hoy?', '¿Qué sede tiene más movimiento?', '¿Dónde reviso pagos?', 'Exporta pagos', 'Quiero cerrar sesión'];
-  }, [isClient, isTrainer]);
-
-  const exportDataset = (type: 'reservas' | 'miembros' | 'pagos' | 'usuarios') => {
+  const exportDataset = (type: 'reservas' | 'huespedes' | 'pagos' | 'usuarios') => {
     if (!data) return;
 
     if (type === 'reservas') {
-      const linkedPerson = user?.email
-        ? data.personas.find((item) => item.correo?.toLowerCase() === user.email?.toLowerCase()) ?? null
-        : null;
-      const trainerProfile = linkedPerson
-        ? data.entrenadoresView.find((item) => item.id === linkedPerson.id_persona) ?? null
-        : null;
-      const reservations = isClient && linkedPerson
-        ? data.reservasView.filter((item) => item.clienteId === linkedPerson.id_persona)
-        : isTrainer && trainerProfile
-          ? data.reservasView.filter((item) => item.entrenador === trainerProfile.nombre)
-          : data.reservasView;
-
-      downloadCsv(reservations, [
+      downloadCsv(data.reservasView, [
         { header: 'ID Reserva', value: (reservation) => reservation.id },
-        { header: 'Cliente', value: (reservation) => reservation.cliente },
-        { header: 'Servicio', value: (reservation) => reservation.servicio },
-        { header: 'Sede', value: (reservation) => reservation.sede },
-        { header: 'Entrenador', value: (reservation) => reservation.entrenador },
+        { header: 'Huesped', value: (reservation) => reservation.huesped },
+        { header: 'Habitacion', value: (reservation) => reservation.habitacion },
+        { header: 'Hotel', value: (reservation) => reservation.hotel },
+        { header: 'Responsable', value: (reservation) => reservation.responsable },
         { header: 'Fecha', value: (reservation) => new Date(reservation.fecha).toLocaleString('es-HN') },
         { header: 'Estado', value: (reservation) => reservation.estado },
-      ], isClient ? 'mis_reservas_asistente' : 'reservas_asistente');
+      ], 'reservas_asistente');
       return;
     }
 
-    if (type === 'miembros') {
-      downloadCsv(data.miembrosView, [
-        { header: 'ID', value: (member) => member.id },
-        { header: 'Nombre', value: (member) => member.nombre },
-        { header: 'Correo', value: (member) => member.correo },
-        { header: 'Plan', value: (member) => member.plan },
-        { header: 'Estado', value: (member) => member.estado },
-        { header: 'Ciudad', value: (member) => member.ciudad },
-      ], 'miembros_asistente');
+    if (type === 'huespedes') {
+      downloadCsv(data.huespedesView, [
+        { header: 'ID', value: (guest) => guest.id },
+        { header: 'Nombre', value: (guest) => guest.nombre },
+        { header: 'Correo', value: (guest) => guest.correo },
+        { header: 'Estado', value: (guest) => guest.estado },
+        { header: 'Ciudad', value: (guest) => guest.ciudad },
+      ], 'huespedes_asistente');
       return;
     }
 
@@ -97,8 +75,8 @@ export const HelpAssistant: React.FC = () => {
       downloadCsv(data.pagosView, [
         { header: 'ID Pago', value: (payment) => payment.id },
         { header: 'Tipo', value: (payment) => payment.tipo },
-        { header: 'Cliente', value: (payment) => payment.cliente },
-        { header: 'Concepto', value: (payment) => payment.concepto },
+        { header: 'Huesped', value: (payment) => payment.huesped },
+        { header: 'Estadia', value: (payment) => payment.estadia },
         { header: 'Monto', value: (payment) => payment.monto },
         { header: 'Fecha', value: (payment) => payment.fecha },
       ], 'pagos_asistente');
@@ -117,60 +95,16 @@ export const HelpAssistant: React.FC = () => {
   const resolveReply = (question: string): AssistantReply => {
     const normalized = question.trim().toLowerCase();
     const fallback: AssistantReply = {
-      text: 'Puedo orientarte sobre reservas, pagos, membresías, sedes, entrenadores, notificaciones y navegación del panel. Intenta con una pregunta más específica.',
+      text: 'Puedo orientarte sobre reservas, pagos, hoteles, personal, notificaciones y navegación del panel. Intenta con una pregunta más específica.',
     };
 
-    if (!data || !user?.email) {
+    if (!data) {
       return { text: 'Todavía estoy esperando los datos del panel. Intenta de nuevo en unos segundos.' };
     }
 
-    const linkedPerson = data.personas.find((item) => item.correo?.toLowerCase() === user.email?.toLowerCase()) ?? null;
-    const memberProfile = linkedPerson ? data.miembrosView.find((item) => item.id === linkedPerson.id_persona) ?? null : null;
-    const clientReservations = linkedPerson
-      ? data.reservasView.filter((item) => item.clienteId === linkedPerson.id_persona).sort((left, right) => new Date(left.fecha).getTime() - new Date(right.fecha).getTime())
-      : [];
-
-    if (normalized.includes('reserva') && isClient) {
-      const nextReservation = clientReservations.find((item) => item.estado !== 'cancelada' && new Date(item.fecha).getTime() >= Date.now()) ?? null;
-
-      if (!nextReservation) {
-        return {
-          text: 'No veo reservas futuras activas en tu perfil. Puedes crear una desde el módulo de reservas filtrando por sede, fecha o tipo.',
-          actionLabel: 'Abrir reservas',
-          path: '/reservas',
-        };
-      }
-
+    if (normalized.includes('pago') || normalized.includes('cobro')) {
       return {
-        text: `Tu próxima reserva es ${nextReservation.servicio} el ${formatDateTime(nextReservation.fecha)} en ${nextReservation.sede}.`,
-        actionLabel: 'Ver mis reservas',
-        path: '/reservas',
-      };
-    }
-
-    if ((normalized.includes('membres') || normalized.includes('vence')) && isClient) {
-      if (!memberProfile?.fechaVencimiento) {
-        return { text: 'No encontré una membresía activa vinculada a tu cuenta. Revisa tu perfil o consulta administración.' };
-      }
-
-      return {
-        text: `Tu membresía ${memberProfile.plan} vence el ${new Date(memberProfile.fechaVencimiento).toLocaleDateString('es-HN')} y su estado actual es ${memberProfile.estado}.`,
-        actionLabel: 'Ver perfil',
-        path: '/perfil',
-      };
-    }
-
-    if (normalized.includes('pago')) {
-      if (isClient) {
-        const latestPayment = memberProfile?.pagos.slice().sort((left, right) => new Date(right.fecha).getTime() - new Date(left.fecha).getTime())[0] ?? null;
-
-        return latestPayment
-          ? { text: `Tu pago más reciente fue por ${latestPayment.monto.toFixed(2)} USD con referencia ${latestPayment.referencia} el ${new Date(latestPayment.fecha).toLocaleDateString('es-HN')}.`, actionLabel: 'Abrir perfil', path: '/perfil' }
-          : { text: 'No encontré pagos registrados en tu perfil todavía.' };
-      }
-
-      return {
-        text: `El panel registra ${data.pagosView.length} pagos y ${data.reservas.filter((item) => item.estado === 'creada').length} reservas todavía en seguimiento de pago.`,
+        text: `El panel registra ${data.pagosView.length} cobros y ${data.reservas.filter((item) => item.estado === 'creada').length} reservas todavía en seguimiento de pago.`,
         actionLabel: 'Ir a pagos',
         path: '/pagos',
       };
@@ -178,23 +112,23 @@ export const HelpAssistant: React.FC = () => {
 
     if ((normalized.includes('export') || normalized.includes('descarg')) && normalized.includes('reserva')) {
       return {
-        text: isClient ? 'Voy a exportar tus reservas actuales a CSV.' : 'Voy a exportar las reservas visibles del sistema a CSV.',
+        text: 'Voy a exportar las reservas visibles del sistema a CSV.',
         actionLabel: 'Descargar CSV',
         exportType: 'reservas',
       };
     }
 
-    if ((normalized.includes('export') || normalized.includes('descarg')) && normalized.includes('miembro')) {
+    if ((normalized.includes('export') || normalized.includes('descarg')) && (normalized.includes('huesped') || normalized.includes('miembro'))) {
       return {
-        text: 'Voy a exportar el listado de miembros a CSV.',
+        text: 'Voy a exportar el listado de huéspedes a CSV.',
         actionLabel: 'Descargar CSV',
-        exportType: 'miembros',
+        exportType: 'huespedes',
       };
     }
 
     if ((normalized.includes('export') || normalized.includes('descarg')) && normalized.includes('pago')) {
       return {
-        text: 'Voy a exportar el historial de pagos a CSV.',
+        text: 'Voy a exportar el historial de cobros a CSV.',
         actionLabel: 'Descargar CSV',
         exportType: 'pagos',
       };
@@ -208,15 +142,7 @@ export const HelpAssistant: React.FC = () => {
       };
     }
 
-    if (normalized.includes('agenda') || normalized.includes('hoy')) {
-      if (isTrainer && linkedPerson) {
-        const trainer = data.entrenadoresView.find((item) => item.id === linkedPerson.id_persona) ?? null;
-        const nextSession = trainer?.schedule.slice().sort((left, right) => new Date(left.horario).getTime() - new Date(right.horario).getTime()).find((item) => new Date(item.horario).getTime() >= Date.now()) ?? null;
-        return nextSession
-          ? { text: `Tu siguiente bloque es ${nextSession.actividad} el ${formatDateTime(nextSession.horario)} en ${nextSession.sede}.`, actionLabel: 'Ver agenda', path: '/reservas' }
-          : { text: 'No detecto bloques futuros asignados ahora mismo. Revisa tu agenda para confirmarlo.' };
-      }
-
+    if (normalized.includes('agenda') || normalized.includes('hoy') || normalized.includes('pendiente')) {
       return {
         text: `Hoy hay ${data.reservasView.filter((item) => new Date(item.fecha).toDateString() === new Date().toDateString()).length} reservas visibles en el sistema.`,
         actionLabel: 'Abrir panel',
@@ -224,18 +150,18 @@ export const HelpAssistant: React.FC = () => {
       };
     }
 
-    if (normalized.includes('sede')) {
-      const topSede = data.sedesView.slice().sort((left, right) => right.reservas - left.reservas)[0] ?? null;
-      return topSede
-        ? { text: `La sede con mayor movimiento es ${topSede.nombre}, con ${topSede.reservas} reservas y ${topSede.actividades} actividades.`, actionLabel: 'Ver sedes', path: '/sedes' }
-        : { text: 'Todavía no hay datos de sedes disponibles.' };
+    if (normalized.includes('hotel') || normalized.includes('sede')) {
+      const topHotel = data.hotelesView.slice().sort((left, right) => right.reservas - left.reservas)[0] ?? null;
+      return topHotel
+        ? { text: `El hotel con mayor movimiento es ${topHotel.nombre}, con ${topHotel.reservas} reservas y ${topHotel.habitaciones} habitaciones operativas.`, actionLabel: 'Ver hoteles', path: '/hoteles' }
+        : { text: 'Todavía no hay datos de hoteles disponibles.' };
     }
 
-    if (normalized.includes('entrenador')) {
-      const topTrainer = data.entrenadoresView.slice().sort((left, right) => right.workload - left.workload)[0] ?? null;
-      return topTrainer
-        ? { text: `${topTrainer.nombre} lidera la carga semanal con ${topTrainer.workload} bloques y ${topTrainer.assignedCount} clientes asignados.`, actionLabel: 'Ver entrenadores', path: '/entrenadores' }
-        : { text: 'No hay entrenadores disponibles para resumir ahora mismo.' };
+    if (normalized.includes('personal') || normalized.includes('responsable')) {
+      const topStaff = data.personalView.slice().sort((left, right) => right.workload - left.workload)[0] ?? null;
+      return topStaff
+        ? { text: `${topStaff.nombre} lidera la carga semanal con ${topStaff.workload} bloques y ${topStaff.assignedCount} reservas vinculadas.`, actionLabel: 'Ver personal', path: '/personal' }
+        : { text: 'No hay personal operativo disponible para resumir ahora mismo.' };
     }
 
     if (normalized.includes('notific')) {
@@ -255,9 +181,9 @@ export const HelpAssistant: React.FC = () => {
     }
 
     if (normalized.includes('como') || normalized.includes('donde') || normalized.includes('ayuda')) {
-      return role === 'client'
-        ? { text: 'Como cliente puedes reservar desde Reservas, revisar tu vigencia en Perfil y monitorear avisos desde la campana superior.' }
-        : { text: 'Puedes navegar por módulos desde la barra lateral, usar la campana para alertas y aplicar filtros en los gráficos del panel para analizar operación.' };
+      return {
+        text: 'Puedes navegar por módulos desde la barra lateral, usar la campana para alertas y aplicar filtros en los gráficos del panel para analizar la operación hotelera.',
+      };
     }
 
     return fallback;
@@ -332,7 +258,7 @@ export const HelpAssistant: React.FC = () => {
           )}
 
           <form className="help-assistant-form" onSubmit={(event) => { event.preventDefault(); submitQuestion(input); }}>
-            <input className="input" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Pregunta algo sobre tu operación..." />
+            <input className="input" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Pregunta algo sobre la operación hotelera..." />
             <button type="submit" className="btn">Enviar</button>
           </form>
         </div>

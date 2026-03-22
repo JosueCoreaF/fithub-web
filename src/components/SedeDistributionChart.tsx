@@ -1,14 +1,14 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
-interface SedeData {
+interface HotelDistributionData {
   name: string;
   value: number;
   color: string;
 }
 
 interface Props {
-  data: SedeData[];
+  data: HotelDistributionData[];
 }
 
 export const SedeDistributionChart: React.FC<Props> = ({ data }) => {
@@ -16,7 +16,7 @@ export const SedeDistributionChart: React.FC<Props> = ({ data }) => {
 
   return (
     <div className="sede-distribution-card">
-      <h3 className="sede-distribution-title">Distribución por Sede</h3>
+      <h3 className="sede-distribution-title">Distribución por Hotel</h3>
       <div className="sede-distribution-layout">
         <div className="sede-distribution-chartWrap">
           <ResponsiveContainer width="100%" height="100%">

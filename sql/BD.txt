@@ -1,0 +1,169 @@
+-- WARNING: This file is contextual documentation only and should not be executed directly.
+-- Fuente operativa recomendada: sql/schema_hotel_fresh.sql y sql/super_admin_access.sql.
+
+-- Resumen del dominio actual
+-- El producto activo opera como plataforma hotelera interna.
+-- Los roles soportados en accesos son admin y super_admin.
+-- No existen membresias activas ni flujos cliente/entrenador en la operacion vigente.
+
+CREATE TABLE public.access_invitations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  email text NOT NULL,
+  full_name text,
+  role text NOT NULL CHECK (role = ANY (ARRAY['admin'::text, 'super_admin'::text])),
+  invite_token text NOT NULL UNIQUE,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'accepted'::text, 'expired'::text, 'revoked'::text])),
+  invited_by uuid,
+  accepted_user_id uuid,
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '7 days'::interval),
+  accepted_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT access_invitations_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.access_role_audit (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  actor_user_id uuid,
+  target_user_id uuid,
+  target_email text,
+  action text NOT NULL,
+  previous_role text,
+  next_role text,
+  reason text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT access_role_audit_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.huespedes (
+  id_huesped uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre_completo text NOT NULL,
+  correo text NOT NULL,
+  telefono text,
+  documento_identidad text,
+  ciudad text,
+  direccion text,
+  fecha_registro timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT huespedes_pkey PRIMARY KEY (id_huesped),
+  CONSTRAINT huespedes_correo_unique UNIQUE (correo)
+);
+
+CREATE TABLE public.hoteles (
+  id_hotel uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre_hotel text NOT NULL,
+  ciudad text NOT NULL,
+  direccion text NOT NULL,
+  telefono text,
+  correo_contacto text,
+  estrellas integer NOT NULL DEFAULT 3,
+  estado text NOT NULL DEFAULT 'activo'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT hoteles_pkey PRIMARY KEY (id_hotel),
+  CONSTRAINT hoteles_nombre_unique UNIQUE (nombre_hotel)
+);
+
+CREATE TABLE public.personal_hotel (
+  id_personal uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_hotel uuid NOT NULL,
+  nombre_completo text NOT NULL,
+  correo text NOT NULL,
+  telefono text,
+  rol text NOT NULL,
+  estado text NOT NULL DEFAULT 'activo'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT personal_hotel_pkey PRIMARY KEY (id_personal),
+  CONSTRAINT personal_hotel_id_hotel_fkey FOREIGN KEY (id_hotel) REFERENCES public.hoteles(id_hotel)
+);
+
+CREATE TABLE public.tipos_habitacion (
+  id_tipo_habitacion uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre_tipo text NOT NULL,
+  descripcion text,
+  capacidad_base integer NOT NULL DEFAULT 1,
+  tarifa_base numeric(10,2) NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tipos_habitacion_pkey PRIMARY KEY (id_tipo_habitacion)
+);
+
+CREATE TABLE public.habitaciones (
+  id_habitacion uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_hotel uuid NOT NULL,
+  id_tipo_habitacion uuid NOT NULL,
+  codigo_habitacion text NOT NULL,
+  nombre_habitacion text NOT NULL,
+  piso integer,
+  capacidad integer NOT NULL DEFAULT 1,
+  tarifa_noche numeric(10,2) NOT NULL DEFAULT 0,
+  estado text NOT NULL DEFAULT 'disponible'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT habitaciones_pkey PRIMARY KEY (id_habitacion),
+  CONSTRAINT habitaciones_id_hotel_fkey FOREIGN KEY (id_hotel) REFERENCES public.hoteles(id_hotel),
+  CONSTRAINT habitaciones_id_tipo_habitacion_fkey FOREIGN KEY (id_tipo_habitacion) REFERENCES public.tipos_habitacion(id_tipo_habitacion)
+);
+
+CREATE TABLE public.reservas_hotel (
+  id_reserva_hotel uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_huesped uuid NOT NULL,
+  id_hotel uuid NOT NULL,
+  id_habitacion uuid NOT NULL,
+  check_in timestamp with time zone NOT NULL,
+  check_out timestamp with time zone NOT NULL,
+  adultos integer NOT NULL DEFAULT 1,
+  ninos integer NOT NULL DEFAULT 0,
+  estado text NOT NULL DEFAULT 'pendiente'::text,
+  origen_reserva text NOT NULL DEFAULT 'web'::text,
+  total_reserva numeric(10,2) NOT NULL DEFAULT 0,
+  anticipo numeric(10,2) NOT NULL DEFAULT 0,
+  observaciones text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT reservas_hotel_pkey PRIMARY KEY (id_reserva_hotel),
+  CONSTRAINT reservas_hotel_id_huesped_fkey FOREIGN KEY (id_huesped) REFERENCES public.huespedes(id_huesped),
+  CONSTRAINT reservas_hotel_id_hotel_fkey FOREIGN KEY (id_hotel) REFERENCES public.hoteles(id_hotel),
+  CONSTRAINT reservas_hotel_id_habitacion_fkey FOREIGN KEY (id_habitacion) REFERENCES public.habitaciones(id_habitacion)
+);
+
+CREATE TABLE public.pagos_hotel (
+  id_pago_hotel uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_reserva_hotel uuid NOT NULL,
+  monto numeric(10,2) NOT NULL,
+  metodo_pago text NOT NULL,
+  referencia text,
+  fecha_pago timestamp with time zone NOT NULL DEFAULT now(),
+  estado text NOT NULL DEFAULT 'registrado'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT pagos_hotel_pkey PRIMARY KEY (id_pago_hotel),
+  CONSTRAINT pagos_hotel_id_reserva_hotel_fkey FOREIGN KEY (id_reserva_hotel) REFERENCES public.reservas_hotel(id_reserva_hotel)
+);
+
+CREATE TABLE public.bloqueos_habitacion (
+  id_bloqueo uuid NOT NULL DEFAULT gen_random_uuid(),
+  id_habitacion uuid NOT NULL,
+  fecha_inicio timestamp with time zone NOT NULL,
+  fecha_fin timestamp with time zone NOT NULL,
+  motivo text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT bloqueos_habitacion_pkey PRIMARY KEY (id_bloqueo),
+  CONSTRAINT bloqueos_habitacion_id_habitacion_fkey FOREIGN KEY (id_habitacion) REFERENCES public.habitaciones(id_habitacion)
+);
+
+CREATE TABLE public.configuracion_hotelera (
+  id_config text NOT NULL DEFAULT 'default'::text,
+  hora_check_in time NOT NULL DEFAULT '15:00'::time,
+  hora_check_out time NOT NULL DEFAULT '12:00'::time,
+  moneda text NOT NULL DEFAULT 'USD'::text,
+  porcentaje_impuesto numeric(5,2) NOT NULL DEFAULT 0,
+  permite_sobreventa boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT configuracion_hotelera_pkey PRIMARY KEY (id_config)
+);

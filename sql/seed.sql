@@ -235,24 +235,6 @@ FROM (
 ) AS seed_rows
 WHERE pt.id_persona = seed_rows.id_persona;
 
--- Miembros: ejemplo de membresías
-INSERT INTO membresias (id_cliente, tipo_plan, fecha_inicio, fecha_vencimiento, costo, estado)
-SELECT *
-FROM (
-  VALUES
-    (
-      (SELECT id_persona FROM clientes JOIN personas USING (id_persona) WHERE personas.correo = 'juan.perez@example.com'),
-      'Mensual'::text,'2026-02-15'::date,'2026-03-15'::date,30.00::numeric,'activa'::text
-    )
-) AS seed_rows (id_cliente, tipo_plan, fecha_inicio, fecha_vencimiento, costo, estado)
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM membresias membresia
-  WHERE membresia.id_cliente = seed_rows.id_cliente
-    AND membresia.tipo_plan = seed_rows.tipo_plan
-    AND membresia.fecha_inicio = seed_rows.fecha_inicio
-);
-
 -- Configuracion operativa por defecto
 INSERT INTO configuracion_operativa (
   id_config,
@@ -303,5 +285,82 @@ FROM (
   hora_cierre
 )
 WHERE configuracion.id_config = seed_rows.id_config;
+
+-- Hoteles
+INSERT INTO hoteles (nombre_hotel, ciudad, direccion, estrellas, estado)
+SELECT *
+FROM (
+  VALUES
+    ('FitHub Downtown Suites'::text, 'Tegucigalpa'::text, 'Boulevard Centro, Tegucigalpa'::text, 4, 'activo'::text),
+    ('FitHub Coast Hotel', 'La Ceiba', 'Avenida del Mar, La Ceiba', 5, 'activo')
+) AS seed_rows (nombre_hotel, ciudad, direccion, estrellas, estado)
+WHERE NOT EXISTS (
+  SELECT 1 FROM hoteles hotel WHERE hotel.nombre_hotel = seed_rows.nombre_hotel
+);
+
+UPDATE hoteles hotel
+SET
+  ciudad = seed_rows.ciudad,
+  direccion = seed_rows.direccion,
+  estrellas = seed_rows.estrellas,
+  estado = seed_rows.estado
+FROM (
+  VALUES
+    ('FitHub Downtown Suites'::text, 'Tegucigalpa'::text, 'Boulevard Centro, Tegucigalpa'::text, 4, 'activo'::text),
+    ('FitHub Coast Hotel', 'La Ceiba', 'Avenida del Mar, La Ceiba', 5, 'activo')
+) AS seed_rows (nombre_hotel, ciudad, direccion, estrellas, estado)
+WHERE hotel.nombre_hotel = seed_rows.nombre_hotel;
+
+-- Habitaciones
+INSERT INTO habitaciones (id_hotel, codigo_habitacion, nombre_habitacion, categoria, descripcion, capacidad, tarifa_base, estado)
+SELECT *
+FROM (
+  VALUES
+    ((SELECT id_hotel FROM hoteles WHERE nombre_hotel = 'FitHub Downtown Suites'), 'D-101'::text, 'Suite Ejecutiva 101'::text, 'suite'::text, 'Suite con vista urbana'::text, 2, 85.00::numeric, 'disponible'::text),
+    ((SELECT id_hotel FROM hoteles WHERE nombre_hotel = 'FitHub Downtown Suites'), 'D-205', 'Habitación Deluxe 205', 'deluxe', 'Habitación con desayuno incluido', 3, 110.00::numeric, 'disponible'),
+    ((SELECT id_hotel FROM hoteles WHERE nombre_hotel = 'FitHub Coast Hotel'), 'C-12', 'Suite Vista Mar 12', 'suite', 'Suite con vista al mar y balcón', 2, 150.00::numeric, 'disponible')
+) AS seed_rows (id_hotel, codigo_habitacion, nombre_habitacion, categoria, descripcion, capacidad, tarifa_base, estado)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM habitaciones habitacion
+  WHERE habitacion.id_hotel = seed_rows.id_hotel
+    AND habitacion.codigo_habitacion = seed_rows.codigo_habitacion
+);
+
+-- Reservas hotel de ejemplo
+INSERT INTO reservas_hotel (id_huesped, id_habitacion, check_in, check_out, adultos, ninos, estado, total, observaciones)
+SELECT *
+FROM (
+  VALUES
+    (
+      (SELECT id_persona FROM clientes JOIN personas USING (id_persona) WHERE personas.correo = 'juan.perez@example.com'),
+      (SELECT id_habitacion FROM habitaciones WHERE codigo_habitacion = 'D-101' LIMIT 1),
+      '2026-04-10 15:00:00'::timestamptz,
+      '2026-04-12 12:00:00'::timestamptz,
+      2,
+      0,
+      'confirmada'::text,
+      170.00::numeric,
+      'Llegada tardía confirmada'::text
+    ),
+    (
+      (SELECT id_persona FROM clientes JOIN personas USING (id_persona) WHERE personas.correo = 'maria.lopez@example.com'),
+      (SELECT id_habitacion FROM habitaciones WHERE codigo_habitacion = 'C-12' LIMIT 1),
+      '2026-04-18 15:00:00'::timestamptz,
+      '2026-04-20 12:00:00'::timestamptz,
+      2,
+      1,
+      'pendiente'::text,
+      300.00::numeric,
+      'Solicita cuna adicional'::text
+    )
+) AS seed_rows (id_huesped, id_habitacion, check_in, check_out, adultos, ninos, estado, total, observaciones)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM reservas_hotel reserva
+  WHERE reserva.id_huesped = seed_rows.id_huesped
+    AND reserva.id_habitacion = seed_rows.id_habitacion
+    AND reserva.check_in = seed_rows.check_in
+);
 
 -- FIN seed (IDs generados automáticamente)

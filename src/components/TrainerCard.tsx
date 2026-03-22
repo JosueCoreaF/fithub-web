@@ -17,7 +17,7 @@ interface Props {
 }
 
 export const TrainerCard: React.FC<Props> = ({ id, nombre, especialidad, sedeHoy, workload, assignedCount = 0, rating = 0, availability = 'Disponible', onEdit, onDelete, onViewSchedule, editableImage = false }) => {
-  const safeName = nombre.trim() || 'Entrenador';
+  const safeName = nombre.trim() || 'Personal';
   const shortId = id ? `${id.slice(0, 8)}...` : '—';
   const initials = safeName.split(' ').map(n => n[0]).slice(0,2).join('');
   const normalizedAvailability = availability.replace(/\s+/g,'').toLowerCase();
@@ -28,7 +28,7 @@ export const TrainerCard: React.FC<Props> = ({ id, nombre, especialidad, sedeHoy
         <div className="trainer-left">
           {id ? (
             <EditableEntityImage
-              kind="trainer"
+              kind="personal"
               entityId={id}
               alt={`Foto de ${safeName}`}
               fallback={initials}
@@ -40,7 +40,7 @@ export const TrainerCard: React.FC<Props> = ({ id, nombre, especialidad, sedeHoy
             <div className="avatar trainer-avatar">{initials}</div>
           )}
           <div className="trainer-info">
-            <span className="trainer-kicker">Perfil</span>
+            <span className="trainer-kicker">Operación</span>
             <strong title={safeName}>{safeName}</strong>
             <div className="muted trainer-subline">
               <span>{especialidad}</span>
@@ -53,15 +53,15 @@ export const TrainerCard: React.FC<Props> = ({ id, nombre, especialidad, sedeHoy
 
       <div className="trainer-facts-grid">
         <div className="trainer-fact-card">
-          <span>Sede</span>
-          <strong>{sedeHoy || 'Sin sede'}</strong>
+          <span>Hotel</span>
+          <strong>{sedeHoy || 'Sin hotel'}</strong>
         </div>
         <div className="trainer-fact-card">
           <span>Carga semanal</span>
-          <strong>{workload} clases</strong>
+          <strong>{workload} bloques</strong>
         </div>
         <div className="trainer-fact-card">
-          <span>Clientes</span>
+          <span>Reservas</span>
           <strong>{assignedCount}</strong>
         </div>
         <div className="trainer-fact-card">
@@ -71,7 +71,7 @@ export const TrainerCard: React.FC<Props> = ({ id, nombre, especialidad, sedeHoy
       </div>
 
       <div className="trainer-actions">
-        {onViewSchedule && <button className="btn small" onClick={onViewSchedule}>Ver horario</button>}
+        {onViewSchedule && <button className="btn small" onClick={onViewSchedule}>Ver agenda</button>}
         {onEdit && <button className="btn small ghost" onClick={onEdit}>Editar</button>}
         {onDelete && <button className="btn small ghost trainer-delete" onClick={onDelete}>Eliminar</button>}
       </div>

@@ -7,27 +7,6 @@ const API_BASE_URL = (() => {
   return 'http://localhost:4000/api';
 })();
 
-export type MembershipPlanOption = {
-  value: string;
-  label: string;
-  description: string;
-  benefits: string[];
-  cost: number;
-  durationMonths?: number;
-  durationDays?: number;
-  recommended?: boolean;
-};
-
-export const MEMBERSHIP_PLAN_OPTIONS: MembershipPlanOption[] = [
-  { value: 'Semanal', label: 'Semanal', description: 'Acceso rápido para arrancar o retomar ritmo sin compromiso largo.', benefits: ['Acceso general al gimnasio', 'Ideal para viajes o reinicio', 'Sin compromiso mensual'], cost: 12, durationDays: 7 },
-  { value: 'Quincenal', label: 'Quincenal', description: 'Ideal para probar la rutina durante dos semanas completas.', benefits: ['Dos semanas de acceso continuo', 'Perfecto para crear hábito', 'Pago ligero de entrada'], cost: 22, durationDays: 15 },
-  { value: 'Mensual', label: 'Mensual', description: 'El plan base para entrenar con continuidad mes a mes.', benefits: ['Acceso completo al gym', 'Reserva continua de clases', 'Equilibrio entre precio y constancia'], cost: 30, durationMonths: 1, recommended: true },
-  { value: 'Bimestral', label: 'Bimestral', description: 'Dos meses de avance con mejor precio por ciclo.', benefits: ['Mejor tarifa por mes', 'Más tiempo para ver progreso', 'Menos renovaciones'], cost: 56, durationMonths: 2 },
-  { value: 'Trimestral', label: 'Trimestral', description: 'Un bloque sólido para construir hábito y resultados.', benefits: ['Ciclo completo de transformación', 'Precio preferente', 'Mayor continuidad en reservas'], cost: 78, durationMonths: 3 },
-  { value: 'Semestral', label: 'Semestral', description: 'Compromiso de medio año para clientes constantes.', benefits: ['Ahorro superior por periodo', 'Rutina sostenida de largo plazo', 'Ideal para objetivos serios'], cost: 150, durationMonths: 6 },
-  { value: 'Anual', label: 'Anual', description: 'La tarifa más rentable para clientes de alto compromiso.', benefits: ['Mejor valor del catálogo', 'Un año completo de acceso', 'Pensado para clientes de alto rendimiento'], cost: 280, durationMonths: 12 },
-];
-
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -95,16 +74,6 @@ type ClienteRow = {
   fecha_registro?: string | null;
 };
 
-type MembresiaRow = {
-  id_membresia: string;
-  id_cliente: string | null;
-  tipo_plan: string;
-  fecha_inicio: string;
-  fecha_vencimiento: string;
-  costo: number;
-  estado: 'activa' | 'vencida' | 'cancelada';
-};
-
 type EntrenadorRow = {
   id_persona: string;
   especialidad?: string | null;
@@ -150,7 +119,6 @@ type PagoRow = {
   metodo_pago?: string | null;
   referencia?: string | null;
   id_reserva?: string | null;
-  id_membresia?: string | null;
 };
 
 type ConfiguracionOperativaRow = {
@@ -166,6 +134,11 @@ type ConfiguracionOperativaRow = {
 export type ReservaView = {
   id: string;
   programacionId: string | null;
+  huesped: string;
+  huespedId: string | null;
+  habitacion: string;
+  hotel: string;
+  responsable: string;
   cliente: string;
   clienteId: string | null;
   servicio: string;
@@ -178,20 +151,25 @@ export type ReservaView = {
   inscritos: number;
 };
 
-export type MiembroView = {
+export type EstadiaView = ReservaView & {
+  huesped: string;
+  hotel: string;
+  habitacion: string;
+  responsable: string;
+  checkIn: string;
+  checkOut: string;
+  noches: number;
+  total: number;
+};
+
+export type HuespedView = {
   id: string;
-  membershipId?: string;
   nombre: string;
   correo: string;
   telefono?: string;
   ciudad: string;
   fechaRegistro: string;
-  plan: string;
-  estado: 'Activo' | 'Vencido';
-  membresiaEstado: string;
-  costoMembresia: number;
-  totalPagadoMembresia: number;
-  fechaVencimiento?: string;
+  estado: 'Activo' | 'Sin reservas';
   pagos: Array<{
     id: string;
     monto: number;
@@ -213,7 +191,6 @@ export type OperationalUserView = {
   esCliente: boolean;
   esEntrenador: boolean;
   fechaRegistro?: string;
-  planActual?: string;
   especialidad?: string;
   estadoLaboral?: string;
   tipoPerfil: 'cliente' | 'entrenador' | 'cliente_y_entrenador' | 'persona';
@@ -230,7 +207,12 @@ export type OperationalSettings = {
 
 export type PagoView = {
   id: string;
-  tipo: 'reserva' | 'membresia';
+  tipo: 'reserva';
+  huesped: string;
+  huespedId: string | null;
+  estadia: string;
+  hotel: string;
+  estadiaId: string | null;
   cliente: string;
   clienteId: string | null;
   correo: string;
@@ -241,14 +223,15 @@ export type PagoView = {
   metodo: string;
   referencia: string;
   reservaId: string | null;
-  membresiaId: string | null;
+  membresiaId: null;
 };
 
-export type EntrenadorView = {
+export type PersonalView = {
   id: string;
   nombre: string;
   especialidad: string;
   estadoLaboral: string;
+  hotelHoy: string;
   sedeHoy: string;
   workload: number;
   assignedCount: number;
@@ -258,16 +241,19 @@ export type EntrenadorView = {
     id: string;
     actividad: string;
     horario: string;
+    hotel: string;
     sede: string;
   }>;
 };
 
-export type ServicioView = {
+export type HabitacionView = {
   id: string;
   nombre: string;
   tipo: string;
   costo: string;
+  responsable: string;
   instructor: string;
+  hotel: string;
   sede: string;
   horario: string;
   fechaISO: string;
@@ -275,25 +261,34 @@ export type ServicioView = {
   inscritos: number;
 };
 
-export type SedeView = {
+export type InventarioHabitacionView = HabitacionView & {
+  hotel: string;
+  categoria: string;
+  disponible: number;
+  tarifa: string;
+};
+
+export type HotelView = {
   id: string;
   nombre: string;
   ubicacion: string;
+  habitaciones: number;
+  personalAsignado: number;
   actividades: number;
   entrenadores: number;
   reservas: number;
 };
 
 export type DashboardData = {
-  members: number;
+  huespedes: number;
   reservasHoy: number;
-  clases: number;
+  habitaciones: number;
   dataMensual: Array<{ name: string; reservas: number }>;
   week: number[];
   retentionPercent: number;
-  nuevosMiembros: number;
+  nuevosHuespedes: number;
   pagosPendientes: number;
-  clasesLlenas: number;
+  habitacionesLlenas: number;
   recentActivity: string[];
 };
 
@@ -304,6 +299,8 @@ export type TrainerFormInput = {
   especialidad: string;
   estadoLaboral: string;
 };
+
+export type PersonalFormInput = TrainerFormInput;
 
 export type ServiceFormInput = {
   nombre: string;
@@ -316,22 +313,17 @@ export type ServiceFormInput = {
   costo: number;
 };
 
+export type HabitacionFormInput = Omit<ServiceFormInput, 'sedeId' | 'entrenadorId'> & {
+  hotelId: string;
+  responsableId: string;
+};
+
 export type PaymentFormInput = {
-  tipo: 'reserva' | 'membresia';
   referencia: string;
   metodoPago: 'efectivo' | 'tarjeta' | 'transferencia' | 'deposito' | 'otro';
   monto: number;
   fechaPago?: string;
   reservaId?: string;
-  membresiaId?: string;
-};
-
-export type MembershipCheckoutInput = {
-  clienteId: string;
-  tipoPlan: string;
-  referencia: string;
-  metodoPago: PaymentFormInput['metodoPago'];
-  fechaPago?: string;
 };
 
 export type ReservationCheckoutInput = {
@@ -345,6 +337,18 @@ export type ReservationCreateInput = {
   actividadId: string;
   estado?: 'creada' | 'confirmada' | 'cancelada' | 'completada';
   pago?: ReservationCheckoutInput;
+};
+
+export type EstadiaCreateInput = Omit<ReservationCreateInput, 'clienteId' | 'actividadId'> & {
+  huespedId: string;
+  habitacionId: string;
+};
+
+export type HotelReservationCreateInput = EstadiaCreateInput & {
+  checkIn?: string;
+  checkOut?: string;
+  noches?: number;
+  observaciones?: string;
 };
 
 export type ClientProfileInput = {
@@ -380,7 +384,7 @@ export type AccessProfile = {
   userId: string;
   email: string;
   fullName: string;
-  role: 'trainer' | 'admin' | 'super_admin';
+  role: 'admin' | 'super_admin';
   personaId: string | null;
   personaNombre: string | null;
   telefono: string | null;
@@ -388,6 +392,8 @@ export type AccessProfile = {
   emailConfirmed: boolean;
   lastSignInAt: string | null;
 };
+
+export type AccessInvitationRole = 'admin' | 'super_admin';
 
 export type AccessAuditEntry = {
   id: string;
@@ -407,7 +413,7 @@ export type AccessInvitation = {
   id: string;
   email: string;
   fullName: string | null;
-  role: 'trainer' | 'admin' | 'super_admin';
+  role: 'admin' | 'super_admin';
   status: 'pending' | 'accepted' | 'expired' | 'revoked';
   inviteToken: string;
   invitedBy: string | null;
@@ -420,7 +426,7 @@ export type AccessInvitation = {
 export type InvitationValidation = {
   email: string;
   fullName: string | null;
-  role: 'trainer' | 'admin' | 'super_admin';
+  role: 'admin' | 'super_admin';
   expiresAt: string;
   status: 'pending' | 'accepted' | 'expired' | 'revoked';
 };
@@ -451,42 +457,6 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const normalizeText = (value?: string | null) => value?.trim().toLowerCase() ?? '';
-
-const getMembershipPlanOption = (planName: string) => {
-  const normalized = normalizeText(planName);
-  return MEMBERSHIP_PLAN_OPTIONS.find((option) => {
-    const optionName = normalizeText(option.value);
-    if (normalized === optionName) return true;
-    if (normalized.includes(optionName)) return true;
-    if (optionName.includes(normalized) && normalized.length >= 4) return true;
-    if (optionName === 'anual' && (normalized.includes('annual') || normalized.includes('year'))) return true;
-    return false;
-  }) ?? null;
-};
-
-const getMembershipEndDate = (planName: string, startDate: Date) => {
-  const option = getMembershipPlanOption(planName);
-  const endDate = new Date(startDate);
-
-  if (option?.durationDays) {
-    endDate.setDate(endDate.getDate() + option.durationDays);
-    return endDate;
-  }
-
-  endDate.setMonth(endDate.getMonth() + (option?.durationMonths ?? 1));
-  return endDate;
-};
-
-const getMembershipBaseCost = (planName: string, fallbackCost?: number | null) => {
-  const option = getMembershipPlanOption(planName);
-  if (typeof fallbackCost === 'number' && Number.isFinite(fallbackCost) && fallbackCost > 0) {
-    return fallbackCost;
-  }
-
-  return option?.cost ?? 30;
-};
-
 const getAvailability = (schedule: Array<{ horario: string }>) => {
   if (schedule.length === 0) return 'Disponible';
   const now = new Date();
@@ -496,12 +466,59 @@ const getAvailability = (schedule: Array<{ horario: string }>) => {
   return todaySchedules.some(item => new Date(item.horario).getHours() <= now.getHours()) ? 'En Clase' : 'Disponible';
 };
 
-export async function fetchGymData() {
+const DEFAULT_STAY_NIGHTS = 1;
+
+const getCheckOutDate = (checkIn: string, nights = DEFAULT_STAY_NIGHTS) => {
+  const date = new Date(checkIn);
+  date.setDate(date.getDate() + Math.max(1, nights));
+  return date.toISOString();
+};
+
+const normalizeEstadiaCreateInput = (input: ReservationCreateInput | EstadiaCreateInput): ReservationCreateInput => {
+  const huespedId = 'huespedId' in input ? input.huespedId : input.clienteId;
+  const habitacionId = 'habitacionId' in input ? input.habitacionId : input.actividadId;
+
+  if (!huespedId) {
+    throw new Error('El huésped es obligatorio para crear la estadía.');
+  }
+
+  if (!habitacionId) {
+    throw new Error('La habitación es obligatoria para crear la estadía.');
+  }
+
+  return {
+    clienteId: huespedId,
+    actividadId: habitacionId,
+    estado: input.estado,
+    pago: input.pago,
+  };
+};
+
+const normalizeHabitacionFormInput = (input: ServiceFormInput | HabitacionFormInput): ServiceFormInput => {
+  const hotelId = 'hotelId' in input ? input.hotelId : input.sedeId;
+  const responsableId = 'responsableId' in input ? input.responsableId : input.entrenadorId;
+
+  if (!hotelId) {
+    throw new Error('El hotel es obligatorio para registrar la habitación.');
+  }
+
+  return {
+    nombre: input.nombre,
+    descripcion: input.descripcion,
+    tipo: input.tipo,
+    sedeId: hotelId,
+    entrenadorId: responsableId || '',
+    horario: input.horario,
+    cupoMaximo: input.cupoMaximo,
+    costo: input.costo,
+  };
+};
+
+export async function fetchHotelData() {
   const payload = await apiRequest<{
     personas: PersonaRow[];
     telefonos: TelefonoRow[];
     clientes: ClienteRow[];
-    membresias: MembresiaRow[];
     entrenadores: EntrenadorRow[];
     sedes: SedeRow[];
     actividades: ActividadRow[];
@@ -519,10 +536,6 @@ export async function fetchGymData() {
     sedes,
     actividades,
   } = payload;
-  const membresias = payload.membresias.map((item) => ({
-    ...item,
-    costo: toNumber(item.costo),
-  }));
   const programaciones = payload.programaciones.map((item) => ({
     ...item,
     cupo_maximo: toNumber(item.cupo_maximo),
@@ -570,6 +583,11 @@ export async function fetchGymData() {
     return {
       id: reserva.id_reserva,
       programacionId: reserva.id_programacion,
+      huesped: cliente?.nombre?.trim() || buildFallbackName('Huesped', reserva.id_cliente, cliente?.correo),
+      huespedId: reserva.id_cliente,
+      habitacion: actividad?.nombre_actividad ?? 'Sin habitación',
+      hotel: sede?.nombre_sede ?? 'Sin hotel',
+      responsable: entrenador?.nombre?.trim() || buildFallbackName('Responsable', programacion?.id_entrenador, entrenador?.correo),
       cliente: cliente?.nombre?.trim() || buildFallbackName('Cliente', reserva.id_cliente, cliente?.correo),
       clienteId: reserva.id_cliente,
       servicio: actividad?.nombre_actividad ?? 'Sin servicio',
@@ -591,25 +609,7 @@ export async function fetchGymData() {
     pagosByReserva.set(pago.id_reserva, current);
   }
 
-  const latestMembershipByClient = new Map<string, MembresiaRow>();
-  for (const membresia of membresias) {
-    if (!membresia.id_cliente) continue;
-    const previous = latestMembershipByClient.get(membresia.id_cliente);
-    if (!previous || new Date(membresia.fecha_vencimiento) > new Date(previous.fecha_vencimiento)) {
-      latestMembershipByClient.set(membresia.id_cliente, membresia);
-    }
-  }
-
-  const membershipsMap = new Map(membresias.map(item => [item.id_membresia, item]));
-  const pagosByMembership = new Map<string, PagoRow[]>();
-  for (const pago of pagos) {
-    if (!pago.id_membresia) continue;
-    const current = pagosByMembership.get(pago.id_membresia) ?? [];
-    current.push(pago);
-    pagosByMembership.set(pago.id_membresia, current);
-  }
-
-  const pagosByCliente = new Map<string, MiembroView['pagos']>();
+  const pagosByCliente = new Map<string, HuespedView['pagos']>();
   for (const reserva of reservas) {
     if (!reserva.id_cliente) continue;
     const pagosReserva = pagosByReserva.get(reserva.id_reserva) ?? [];
@@ -626,37 +626,19 @@ export async function fetchGymData() {
     pagosByCliente.set(reserva.id_cliente, current);
   }
 
-  const miembrosView: MiembroView[] = clientes.map(cliente => {
+  const huespedesView: HuespedView[] = clientes.map(cliente => {
     const persona = personasMap.get(cliente.id_persona);
-    const membresia = latestMembershipByClient.get(cliente.id_persona);
-    const fechaVencimiento = membresia?.fecha_vencimiento;
-    const membershipPayments = membresia?.id_membresia ? (pagosByMembership.get(membresia.id_membresia) ?? []) : [];
-    const membershipPaymentItems = membershipPayments.map((pago) => ({
-      id: pago.id_pago,
-      monto: pago.monto,
-      fecha: pago.fecha_pago ?? '',
-      metodo: pago.metodo_pago ?? 'N/D',
-      referencia: pago.referencia ?? 'N/D',
-    }));
-    const status = membresia?.estado === 'activa' && fechaVencimiento && new Date(fechaVencimiento) >= new Date()
-      ? 'Activo'
-      : 'Vencido';
+    const pagosCliente = pagosByCliente.get(cliente.id_persona) ?? [];
 
     return {
       id: cliente.id_persona,
-      membershipId: membresia?.id_membresia,
-      nombre: persona?.nombre?.trim() || buildFallbackName('Miembro', cliente.id_persona, persona?.correo),
+      nombre: persona?.nombre?.trim() || buildFallbackName('Huesped', cliente.id_persona, persona?.correo),
       correo: persona?.correo ?? '',
       telefono: telefonosMap.get(cliente.id_persona),
       ciudad: persona?.direccion_ciudad ?? 'Sin ciudad',
       fechaRegistro: cliente.fecha_registro ?? '',
-      plan: membresia?.tipo_plan ?? 'Sin plan',
-      estado: status,
-      membresiaEstado: membresia?.estado ?? 'sin membresia',
-      costoMembresia: Number(membresia?.costo ?? 0),
-      totalPagadoMembresia: membershipPayments.reduce((sum, pago) => sum + Number(pago.monto ?? 0), 0),
-      fechaVencimiento,
-      pagos: [...(pagosByCliente.get(cliente.id_persona) ?? []), ...membershipPaymentItems]
+      estado: pagosCliente.length > 0 ? 'Activo' : 'Sin reservas',
+      pagos: pagosCliente
         .sort((left, right) => new Date(right.fecha).getTime() - new Date(left.fecha).getTime()),
     };
   });
@@ -664,7 +646,6 @@ export async function fetchGymData() {
   const usuariosView: OperationalUserView[] = personas.map(persona => {
     const cliente = clientesMap.get(persona.id_persona) ?? null;
     const entrenador = entrenadoresMap.get(persona.id_persona) ?? null;
-    const membresia = latestMembershipByClient.get(persona.id_persona) ?? null;
     const esCliente = Boolean(cliente);
     const esEntrenador = Boolean(entrenador);
     const tipoPerfil = esCliente && esEntrenador
@@ -687,7 +668,6 @@ export async function fetchGymData() {
       esCliente,
       esEntrenador,
       fechaRegistro: cliente?.fecha_registro ?? undefined,
-      planActual: membresia?.tipo_plan ?? undefined,
       especialidad: entrenador?.especialidad ?? undefined,
       estadoLaboral: entrenador?.estado_laboral ?? undefined,
       tipoPerfil,
@@ -712,30 +692,31 @@ export async function fetchGymData() {
     const reservaActividad = reservaProgramacion?.id_actividad ? actividadesMap.get(reservaProgramacion.id_actividad) ?? null : null;
     const reservaSede = reservaProgramacion?.id_sede ? sedesMap.get(reservaProgramacion.id_sede) ?? null : null;
     const reservaCliente = reserva?.id_cliente ? personasMap.get(reserva.id_cliente) ?? null : null;
-    const membresia = pago.id_membresia ? membershipsMap.get(pago.id_membresia) ?? null : null;
-    const membresiaCliente = membresia?.id_cliente ? personasMap.get(membresia.id_cliente) ?? null : null;
-    const cliente = reservaCliente ?? membresiaCliente;
+    const cliente = reservaCliente;
 
     return {
       id: pago.id_pago,
-      tipo: pago.id_reserva ? 'reserva' : 'membresia',
-      cliente: cliente?.nombre?.trim() || buildFallbackName('Cliente', reserva?.id_cliente ?? membresia?.id_cliente, cliente?.correo),
-      clienteId: reserva?.id_cliente ?? membresia?.id_cliente ?? null,
+      tipo: 'reserva',
+      huesped: cliente?.nombre?.trim() || buildFallbackName('Huesped', reserva?.id_cliente, cliente?.correo),
+      huespedId: reserva?.id_cliente ?? null,
+      estadia: reservaActividad?.nombre_actividad ?? 'Estadía sin habitación',
+      hotel: reservaSede?.nombre_sede ?? 'Sin hotel',
+      estadiaId: pago.id_reserva ?? null,
+      cliente: cliente?.nombre?.trim() || buildFallbackName('Cliente', reserva?.id_cliente, cliente?.correo),
+      clienteId: reserva?.id_cliente ?? null,
       correo: cliente?.correo ?? '',
-      concepto: pago.id_reserva
-        ? (reservaActividad?.nombre_actividad ?? 'Reserva sin actividad')
-        : `Membresia ${membresia?.tipo_plan ?? 'sin plan'}`,
+      concepto: reservaActividad?.nombre_actividad ?? 'Reserva sin actividad',
       sede: reservaSede?.nombre_sede ?? 'Sin sede',
       monto: pago.monto,
       fecha: pago.fecha_pago ?? '',
       metodo: pago.metodo_pago ?? 'N/D',
       referencia: pago.referencia ?? 'N/D',
       reservaId: pago.id_reserva ?? null,
-      membresiaId: pago.id_membresia ?? null,
+      membresiaId: null,
     };
   });
 
-  const scheduleByTrainer = new Map<string, EntrenadorView['schedule']>();
+  const scheduleByTrainer = new Map<string, PersonalView['schedule']>();
   for (const programacion of programaciones) {
     if (!programacion.id_entrenador) continue;
     const actividad = programacion.id_actividad ? actividadesMap.get(programacion.id_actividad) : null;
@@ -745,6 +726,7 @@ export async function fetchGymData() {
       id: programacion.id_programacion,
       actividad: actividad?.nombre_actividad ?? 'Sin actividad',
       horario: programacion.horario,
+      hotel: sede?.nombre_sede ?? 'Sin hotel',
       sede: sede?.nombre_sede ?? 'Sin sede',
     });
     scheduleByTrainer.set(programacion.id_entrenador, current);
@@ -760,7 +742,7 @@ export async function fetchGymData() {
     );
   }
 
-  const entrenadoresView: EntrenadorView[] = entrenadores.map(entrenador => {
+  const personalView: PersonalView[] = entrenadores.map(entrenador => {
     const persona = personasMap.get(entrenador.id_persona);
     const schedule = scheduleByTrainer.get(entrenador.id_persona) ?? [];
     const workload = schedule.length;
@@ -769,9 +751,10 @@ export async function fetchGymData() {
 
     return {
       id: entrenador.id_persona,
-      nombre: persona?.nombre?.trim() || buildFallbackName('Entrenador', entrenador.id_persona, persona?.correo),
+      nombre: persona?.nombre?.trim() || buildFallbackName('Responsable', entrenador.id_persona, persona?.correo),
       especialidad: entrenador.especialidad ?? 'General',
       estadoLaboral: entrenador.estado_laboral ?? 'Activo',
+      hotelHoy: sedeHoy,
       sedeHoy,
       workload,
       assignedCount,
@@ -781,7 +764,7 @@ export async function fetchGymData() {
     };
   });
 
-  const serviciosView: ServicioView[] = programaciones.map(programacion => {
+  const habitacionesView: HabitacionView[] = programaciones.map(programacion => {
     const actividad = programacion.id_actividad ? actividadesMap.get(programacion.id_actividad) : null;
     const entrenador = programacion.id_entrenador ? personasMap.get(programacion.id_entrenador) : null;
     const sede = programacion.id_sede ? sedesMap.get(programacion.id_sede) : null;
@@ -793,7 +776,9 @@ export async function fetchGymData() {
       nombre: actividad?.nombre_actividad ?? 'Sin actividad',
       tipo: actividad?.tipo ?? 'Sin tipo',
       costo: formatCurrency(programacion.costo),
+      responsable: entrenador?.nombre ?? 'Sin responsable',
       instructor: entrenador?.nombre ?? 'Sin instructor',
+      hotel: sede?.nombre_sede ?? 'Sin hotel',
       sede: sede?.nombre_sede ?? 'Sin sede',
       horario: date.toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' }),
       fechaISO: programacion.horario,
@@ -818,19 +803,40 @@ export async function fetchGymData() {
     entrenadoresBySede.set(sede.nombre_sede, current);
   }
 
-  const sedesView: SedeView[] = sedes.map(sede => ({
+  const hotelesView: HotelView[] = sedes.map(sede => ({
     id: sede.id_sede,
     nombre: sede.nombre_sede,
     ubicacion: sede.ubicacion,
+    habitaciones: actividadesBySede.get(sede.nombre_sede) ?? 0,
+    personalAsignado: entrenadoresBySede.get(sede.nombre_sede)?.size ?? 0,
     actividades: actividadesBySede.get(sede.nombre_sede) ?? 0,
     entrenadores: entrenadoresBySede.get(sede.nombre_sede)?.size ?? 0,
     reservas: reservasBySede.get(sede.nombre_sede) ?? 0,
   }));
 
+  const estadiasView: EstadiaView[] = reservasView.map((reserva) => ({
+    ...reserva,
+    huesped: reserva.cliente,
+    hotel: reserva.sede,
+    habitacion: reserva.servicio,
+    responsable: reserva.entrenador,
+    checkIn: reserva.fecha,
+    checkOut: getCheckOutDate(reserva.fecha),
+    noches: DEFAULT_STAY_NIGHTS,
+    total: reserva.precioAplicado,
+  }));
+
+  const inventarioHabitacionesView: InventarioHabitacionView[] = habitacionesView.map((habitacion) => ({
+    ...habitacion,
+    hotel: habitacion.sede,
+    categoria: habitacion.tipo,
+    disponible: Math.max(0, habitacion.capacidad - habitacion.inscritos),
+    tarifa: habitacion.costo,
+  }));
+
   return {
     personas,
     clientes,
-    membresias,
     entrenadores,
     sedes,
     actividades,
@@ -838,21 +844,25 @@ export async function fetchGymData() {
     reservas,
     pagos,
     reservasView,
-    miembrosView,
+    huespedesView,
     usuariosView,
     operationalSettings,
     pagosView,
-    entrenadoresView,
-    serviciosView,
-    sedesView,
+    personalView,
+    habitacionesView,
+    hotelesView,
+    estadiasView,
+    inventarioHabitacionesView,
   };
 }
 
-export function buildDashboardData(data: Awaited<ReturnType<typeof fetchGymData>>): DashboardData {
+export type HotelDataSnapshot = Awaited<ReturnType<typeof fetchHotelData>>;
+
+export function buildDashboardData(data: HotelDataSnapshot): DashboardData {
   const today = startOfDayKey(new Date());
-  const members = data.miembrosView.length;
+  const huespedes = data.huespedesView.length;
   const reservasHoy = data.reservasView.filter(item => startOfDayKey(item.fecha) === today).length;
-  const clases = data.serviciosView.length;
+  const habitaciones = data.habitacionesView.length;
 
   const monthlyMap = new Map<string, number>();
   for (const reserva of data.reservasView) {
@@ -880,94 +890,94 @@ export function buildDashboardData(data: Awaited<ReturnType<typeof fetchGymData>
     return data.reservasView.filter(item => startOfDayKey(item.fecha) === dayKey).length;
   });
 
-  const activos = data.miembrosView.filter(item => item.estado === 'Activo').length;
-  const retentionPercent = Math.round((activos / Math.max(1, members)) * 100);
+  const activos = data.huespedesView.filter(item => item.estado === 'Activo').length;
+  const retentionPercent = Math.round((activos / Math.max(1, huespedes)) * 100);
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const nuevosMiembros = data.miembrosView.filter(item => item.fechaRegistro && new Date(item.fechaRegistro) >= thirtyDaysAgo).length;
+  const nuevosHuespedes = data.huespedesView.filter(item => item.fechaRegistro && new Date(item.fechaRegistro) >= thirtyDaysAgo).length;
   const pagosPendientes = data.reservas.filter(item => item.estado === 'creada').length;
-  const clasesLlenas = data.serviciosView.filter(item => item.inscritos >= item.capacidad && item.capacidad > 0).length;
+  const habitacionesLlenas = data.habitacionesView.filter(item => item.inscritos >= item.capacidad && item.capacidad > 0).length;
   const recentActivity = data.reservasView
     .slice()
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
     .slice(0, 3)
-    .map(item => `${item.estado} — ${item.cliente} (${item.servicio})`);
+    .map(item => `${item.estado} - ${item.huesped} (${item.habitacion})`);
 
   return {
-    members,
+    huespedes,
     reservasHoy,
-    clases,
+    habitaciones,
     dataMensual: monthLabels,
     week,
     retentionPercent,
-    nuevosMiembros,
+    nuevosHuespedes,
     pagosPendientes,
-    clasesLlenas,
+    habitacionesLlenas,
     recentActivity,
   };
 }
 
 export async function fetchDashboardData(): Promise<DashboardData> {
-  const data = await fetchGymData();
+  const data = await fetchHotelData();
   return buildDashboardData(data);
 }
 
 export async function fetchReservasView() {
-  const data = await fetchGymData();
+  const data = await fetchHotelData();
   return data.reservasView;
 }
 
-export async function fetchMiembrosView() {
-  const data = await fetchGymData();
-  return data.miembrosView;
+export async function fetchHuespedesView() {
+  const data = await fetchHotelData();
+  return data.huespedesView;
 }
 
 export async function fetchOperationalUsers() {
-  const data = await fetchGymData();
+  const data = await fetchHotelData();
   return data.usuariosView;
 }
 
 export async function fetchOperationalSettings() {
-  const data = await fetchGymData();
+  const data = await fetchHotelData();
   return data.operationalSettings;
 }
 
-export async function fetchEntrenadoresView() {
-  const data = await fetchGymData();
-  return data.entrenadoresView;
+export async function fetchPersonalView() {
+  const data = await fetchHotelData();
+  return data.personalView;
 }
 
-export async function fetchServiciosView() {
-  const data = await fetchGymData();
-  return data.serviciosView;
+export async function fetchHabitacionesView() {
+  const data = await fetchHotelData();
+  return data.habitacionesView;
 }
 
-export async function fetchSedesView() {
-  const data = await fetchGymData();
-  return data.sedesView;
+export async function fetchHotelesView() {
+  const data = await fetchHotelData();
+  return data.hotelesView;
 }
 
 export async function fetchPagosView() {
-  const data = await fetchGymData();
+  const data = await fetchHotelData();
   return data.pagosView;
 }
 
-export async function createTrainer(input: TrainerFormInput) {
-  await apiRequest('/entrenadores', {
+export async function createPersonal(input: PersonalFormInput) {
+  await apiRequest('/personal', {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
-export async function updateTrainer(id: string, input: TrainerFormInput) {
-  await apiRequest(`/entrenadores/${id}`, {
+export async function updatePersonal(id: string, input: PersonalFormInput) {
+  await apiRequest(`/personal/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   });
 }
 
-export async function deleteTrainer(id: string) {
-  await apiRequest(`/entrenadores/${id}`, {
+export async function deletePersonal(id: string) {
+  await apiRequest(`/personal/${id}`, {
     method: 'DELETE',
   });
 }
@@ -1007,85 +1017,53 @@ export async function saveOperationalSettings(settings: OperationalSettings) {
   });
 }
 
-export async function renewMemberMembership(idCliente: string, tipoPlan: string) {
-  const normalizedPlan = tipoPlan.trim() || 'Mensual';
-  const { data: latestMembership, error: latestMembershipError } = await supabase
-    .from('membresias')
-    .select('tipo_plan, costo, fecha_vencimiento')
-    .eq('id_cliente', idCliente)
-    .order('fecha_vencimiento', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+export async function createEstadia(input: ReservationCreateInput | EstadiaCreateInput) {
+  const normalized = normalizeEstadiaCreateInput(input);
 
-  if (latestMembershipError) throw latestMembershipError;
-
-  const today = new Date();
-  const startDate = new Date(today);
-  const endDate = getMembershipEndDate(normalizedPlan, startDate);
-
-  const { error: closeError } = await supabase
-    .from('membresias')
-    .update({ estado: 'cancelada' })
-    .eq('id_cliente', idCliente)
-    .eq('estado', 'activa');
-
-  if (closeError) throw closeError;
-
-  const { error } = await supabase.from('membresias').insert({
-    id_cliente: idCliente,
-    tipo_plan: normalizedPlan,
-    fecha_inicio: startDate.toISOString().slice(0, 10),
-    fecha_vencimiento: endDate.toISOString().slice(0, 10),
-    costo: getMembershipBaseCost(normalizedPlan, Number(latestMembership?.costo ?? 0)),
-    estado: 'activa',
-  });
-
-  if (error) throw error;
-}
-
-export async function createReservation(input: ReservationCreateInput) {
-  await apiRequest('/reservas', {
+  await apiRequest('/estadias', {
     method: 'POST',
     body: JSON.stringify({
-      clienteId: input.clienteId,
-      actividadId: input.actividadId,
-      estado: input.estado ?? 'confirmada',
-      pago: input.pago,
+      huespedId: normalized.clienteId,
+      habitacionId: normalized.actividadId,
+      estado: normalized.estado ?? 'confirmada',
+      pago: normalized.pago,
     }),
   });
 }
 
-export async function rescheduleReservation(idReserva: string, nextProgramacionId: string) {
-  await apiRequest(`/reservas/${idReserva}/reprogramar`, {
+export async function reprogramEstadia(idReserva: string, nextHabitacionId: string) {
+  await apiRequest(`/estadias/${idReserva}/reprogramar`, {
     method: 'PATCH',
-    body: JSON.stringify({ actividadId: nextProgramacionId }),
+    body: JSON.stringify({ habitacionId: nextHabitacionId }),
   });
 }
 
-export async function cancelReservation(idReserva: string) {
-  await apiRequest(`/reservas/${idReserva}/cancelar`, {
+export async function cancelEstadia(idReserva: string) {
+  await apiRequest(`/estadias/${idReserva}/cancelar`, {
     method: 'PATCH',
   });
 }
 
-export async function createServiceSession(input: ServiceFormInput) {
-  await apiRequest('/actividades', {
+export async function createHabitacion(input: ServiceFormInput | HabitacionFormInput) {
+  const normalized = normalizeHabitacionFormInput(input);
+
+  await apiRequest('/habitaciones', {
     method: 'POST',
     body: JSON.stringify({
-      nombreActividad: input.nombre,
-      descripcion: input.descripcion,
-      tipo: input.tipo,
-      sedeId: input.sedeId,
-      entrenadorId: input.entrenadorId || null,
-      horario: input.horario,
-      cupoMaximo: input.cupoMaximo,
-      costo: input.costo,
+      nombreHabitacion: normalized.nombre,
+      descripcion: normalized.descripcion,
+      tipo: normalized.tipo,
+      hotelId: normalized.sedeId,
+      responsableId: normalized.entrenadorId || null,
+      horario: normalized.horario,
+      cupoMaximo: normalized.cupoMaximo,
+      costo: normalized.costo,
     }),
   });
 }
 
-export async function deleteServiceSession(idProgramacion: string) {
-  await apiRequest(`/actividades/${idProgramacion}`, {
+export async function deleteHabitacion(idProgramacion: string) {
+  await apiRequest(`/habitaciones/${idProgramacion}`, {
     method: 'DELETE',
   });
 }
@@ -1101,12 +1079,8 @@ export async function createPayment(input: PaymentFormInput) {
     throw new Error('El monto debe ser mayor que cero.');
   }
 
-  if (input.tipo === 'reserva' && !input.reservaId) {
+  if (!input.reservaId) {
     throw new Error('Selecciona una reserva para registrar el pago.');
-  }
-
-  if (input.tipo === 'membresia' && !input.membresiaId) {
-    throw new Error('Selecciona una membresia para registrar el pago.');
   }
 
   await apiRequest('/pagos', {
@@ -1116,30 +1090,11 @@ export async function createPayment(input: PaymentFormInput) {
       fechaPago: input.fechaPago ?? new Date().toISOString(),
       metodoPago: input.metodoPago,
       referencia: normalizedReference,
-      reservaId: input.tipo === 'reserva' ? input.reservaId ?? undefined : undefined,
-      membresiaId: input.tipo === 'membresia' ? input.membresiaId ?? undefined : undefined,
+      reservaId: input.reservaId,
     }),
   });
 }
 
-export async function checkoutMembershipPlan(input: MembershipCheckoutInput) {
-  const normalizedReference = input.referencia.trim();
-
-  if (!normalizedReference) {
-    throw new Error('La referencia del pago es obligatoria.');
-  }
-
-  await apiRequest('/membresias/checkout', {
-    method: 'POST',
-    body: JSON.stringify({
-      clienteId: input.clienteId,
-      tipoPlan: input.tipoPlan,
-      referencia: normalizedReference,
-      metodoPago: input.metodoPago,
-      fechaPago: input.fechaPago ?? new Date().toISOString(),
-    }),
-  });
-}
 
 export async function ensureClientProfile(input: ClientProfileInput) {
   const normalizedEmail = input.correo.trim().toLowerCase();
@@ -1273,7 +1228,7 @@ export async function fetchAccessProfiles(): Promise<AccessProfile[]> {
     user_id: string;
     email: string;
     full_name: string;
-    role: 'trainer' | 'admin' | 'super_admin';
+    role: 'admin' | 'super_admin';
     persona_id: string | null;
     persona_nombre: string | null;
     telefono: string | null;
@@ -1346,7 +1301,7 @@ export async function fetchAccessInvitations(): Promise<AccessInvitation[]> {
     id: string;
     email: string;
     full_name: string | null;
-    role: 'trainer' | 'admin' | 'super_admin';
+    role: 'admin' | 'super_admin';
     status: 'pending' | 'accepted' | 'expired' | 'revoked';
     invite_token: string;
     invited_by: string | null;
@@ -1369,7 +1324,7 @@ export async function fetchAccessInvitations(): Promise<AccessInvitation[]> {
   }));
 }
 
-export async function createAccessInvitation(input: { email: string; fullName: string; role: AccessProfile['role'] }) {
+export async function createAccessInvitation(input: { email: string; fullName: string; role: AccessInvitationRole }) {
   const { data, error } = await supabase.rpc('create_access_invitation', {
     target_email: input.email,
     target_full_name: input.fullName,
@@ -1409,7 +1364,7 @@ export async function validateAccessInvitation(inviteToken: string): Promise<Inv
   const row = (data?.[0] ?? null) as {
     email: string;
     full_name: string | null;
-    role: 'trainer' | 'admin' | 'super_admin';
+    role: 'admin' | 'super_admin';
     expires_at: string;
     status: 'pending' | 'accepted' | 'expired' | 'revoked';
   } | null;
