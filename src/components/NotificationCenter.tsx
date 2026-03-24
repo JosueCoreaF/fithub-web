@@ -74,7 +74,7 @@ export const NotificationCenter: React.FC = () => {
       generated.push({
         id: `admin-pending-payments-${dashboard.pagosPendientes}`,
         title: 'Hay reservas pendientes de cobro',
-        detail: `${dashboard.pagosPendientes} reserva${dashboard.pagosPendientes === 1 ? '' : 's'} siguen en estado creada y requieren seguimiento.`,
+        detail: `${dashboard.pagosPendientes} reserva${dashboard.pagosPendientes === 1 ? '' : 's'} aún tienen saldo pendiente y requieren seguimiento.`,
         createdAt: nowIso,
         tone: 'warning',
         path: '/pagos',

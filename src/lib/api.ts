@@ -131,6 +131,47 @@ type ConfiguracionOperativaRow = {
   hora_cierre: string;
 };
 
+type FreshHotelRow = {
+  id_hotel: string;
+  nombre_hotel: string;
+  ciudad?: string | null;
+  direccion?: string | null;
+  estado?: string | null;
+};
+
+type FreshRoomTypeRow = {
+  id_tipo_habitacion: string;
+  nombre_tipo: string;
+  descripcion?: string | null;
+};
+
+type FreshRoomRow = {
+  id_habitacion: string;
+  id_hotel: string;
+  id_tipo_habitacion?: string | null;
+  codigo_habitacion?: string | null;
+  nombre_habitacion: string;
+  capacidad: number;
+  tarifa_noche: number;
+  estado?: string | null;
+  created_at?: string | null;
+};
+
+type FreshReservationHotelRow = {
+  id_reserva_hotel: string;
+  id_huesped: string;
+  id_hotel: string;
+  id_habitacion: string;
+  check_in: string;
+  check_out: string;
+  adultos?: number;
+  ninos?: number;
+  estado: string;
+  total_reserva: number;
+  anticipo?: number | null;
+  observaciones?: string | null;
+};
+
 export type ReservaView = {
   id: string;
   programacionId: string | null;
@@ -158,8 +199,12 @@ export type EstadiaView = ReservaView & {
   responsable: string;
   checkIn: string;
   checkOut: string;
+  adultos?: number;
+  ninos?: number;
   noches: number;
   total: number;
+  observaciones?: string;
+  anticipo?: number;
 };
 
 export type HuespedView = {
@@ -203,6 +248,71 @@ export type OperationalSettings = {
   autoConfirmarPagos: boolean;
   permitirEdicionEntrenador: boolean;
   horaCierre: string;
+};
+
+export type SupportedCurrency = 'USD' | 'HNL';
+
+export type TariffConfigView = {
+  monedaBase: SupportedCurrency;
+  monedaAlterna: SupportedCurrency;
+  tipoCambio: number;
+  actualizadoEn: string;
+  descuentoTerceraEdad: number;
+  edadTerceraEdad: number;
+  porcentajeImpuesto: number;
+};
+
+export type CurrentRoomTariffView = {
+  id: string;
+  hotelId: string;
+  hotel: string;
+  tipoHabitacionId?: string | null;
+  tipo: string;
+  codigo: string;
+  habitacion: string;
+  montoNoche: number;
+  estado: string;
+};
+
+export type CustomTariffView = {
+  id: string;
+  hotelId: string;
+  hotel: string;
+  habitacionId?: string | null;
+  habitacion?: string | null;
+  codigo?: string | null;
+  nombre: string;
+  descripcion?: string;
+  moneda: SupportedCurrency;
+  montoNoche: number;
+  activa: boolean;
+  prioridad: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type TariffCatalogView = {
+  config: TariffConfigView;
+  actuales: CurrentRoomTariffView[];
+  personalizadas: CustomTariffView[];
+};
+
+export type TariffConfigInput = {
+  monedaBase: SupportedCurrency;
+  monedaAlterna: SupportedCurrency;
+  descuentoTerceraEdad: number;
+  edadTerceraEdad: number;
+};
+
+export type CustomTariffInput = {
+  hotelId: string;
+  habitacionId?: string | null;
+  nombre: string;
+  descripcion?: string;
+  montoNoche: number;
+  moneda: SupportedCurrency;
+  activa?: boolean;
+  prioridad?: number;
 };
 
 export type PagoView = {
@@ -259,6 +369,20 @@ export type HabitacionView = {
   fechaISO: string;
   capacidad: number;
   inscritos: number;
+  estadoOperativo?: string;
+};
+
+export type RoomBlockView = {
+  id: string;
+  habitacionId: string;
+  habitacion: string;
+  codigo?: string;
+  hotelId: string;
+  hotel: string;
+  fechaInicio: string;
+  fechaFin: string;
+  motivo: string;
+  createdAt?: string;
 };
 
 export type InventarioHabitacionView = HabitacionView & {
@@ -313,9 +437,14 @@ export type ServiceFormInput = {
   costo: number;
 };
 
+export type RoomOperationalStatus = 'disponible' | 'ocupada' | 'mantenimiento' | 'bloqueada' | 'limpieza';
+
 export type HabitacionFormInput = Omit<ServiceFormInput, 'sedeId' | 'entrenadorId'> & {
   hotelId: string;
   responsableId: string;
+  codigo: string;
+  piso: number;
+  estadoOperativo: RoomOperationalStatus;
 };
 
 export type PaymentFormInput = {
@@ -348,7 +477,10 @@ export type HotelReservationCreateInput = EstadiaCreateInput & {
   checkIn?: string;
   checkOut?: string;
   noches?: number;
+  adultos?: number;
+  ninos?: number;
   observaciones?: string;
+  precioAplicado?: number;
 };
 
 export type ClientProfileInput = {
@@ -474,7 +606,23 @@ const getCheckOutDate = (checkIn: string, nights = DEFAULT_STAY_NIGHTS) => {
   return date.toISOString();
 };
 
-const normalizeEstadiaCreateInput = (input: ReservationCreateInput | EstadiaCreateInput): ReservationCreateInput => {
+const mapHotelReservationStatus = (status?: string | null) => {
+  if (status === 'pendiente') return 'creada';
+  if (status === 'confirmada' || status === 'check_in') return 'confirmada';
+  if (status === 'check_out') return 'completada';
+  return 'cancelada';
+};
+
+const formatRoomOperationalStatus = (status?: string | null) => {
+  const normalized = status?.trim().toLowerCase();
+  if (!normalized) return 'disponible';
+  if (normalized === 'bloqueada') return 'bloqueada';
+  if (normalized === 'mantenimiento') return 'mantenimiento';
+  if (normalized === 'limpieza') return 'limpieza';
+  return normalized;
+};
+
+const normalizeEstadiaCreateInput = (input: ReservationCreateInput | EstadiaCreateInput | HotelReservationCreateInput): HotelReservationCreateInput => {
   const huespedId = 'huespedId' in input ? input.huespedId : input.clienteId;
   const habitacionId = 'habitacionId' in input ? input.habitacionId : input.actividadId;
 
@@ -491,15 +639,43 @@ const normalizeEstadiaCreateInput = (input: ReservationCreateInput | EstadiaCrea
     actividadId: habitacionId,
     estado: input.estado,
     pago: input.pago,
+    precioAplicado: 'precioAplicado' in input ? input.precioAplicado : undefined,
+    checkIn: 'checkIn' in input ? input.checkIn : undefined,
+    checkOut: 'checkOut' in input ? input.checkOut : undefined,
+    noches: 'noches' in input ? input.noches : undefined,
+    adultos: 'adultos' in input ? input.adultos : undefined,
+    ninos: 'ninos' in input ? input.ninos : undefined,
+    observaciones: 'observaciones' in input ? input.observaciones : undefined,
   };
 };
 
-const normalizeHabitacionFormInput = (input: ServiceFormInput | HabitacionFormInput): ServiceFormInput => {
+type NormalizedRoomInput = ServiceFormInput & {
+  codigo: string;
+  piso: number;
+  estadoOperativo: RoomOperationalStatus;
+};
+
+const normalizeHabitacionFormInput = (input: ServiceFormInput | HabitacionFormInput): NormalizedRoomInput => {
   const hotelId = 'hotelId' in input ? input.hotelId : input.sedeId;
   const responsableId = 'responsableId' in input ? input.responsableId : input.entrenadorId;
+  const codigo = 'codigo' in input ? input.codigo : input.nombre;
+  const piso = 'piso' in input ? input.piso : 1;
+  const estadoOperativo = 'estadoOperativo' in input ? input.estadoOperativo : 'disponible';
 
   if (!hotelId) {
     throw new Error('El hotel es obligatorio para registrar la habitación.');
+  }
+
+  if (!input.nombre.trim()) {
+    throw new Error('El nombre de la habitación es obligatorio.');
+  }
+
+  if ('descripcion' in input && !input.descripcion.trim()) {
+    throw new Error('La descripción de la habitación es obligatoria.');
+  }
+
+  if (!codigo.trim()) {
+    throw new Error('El código de la habitación es obligatorio.');
   }
 
   return {
@@ -511,6 +687,9 @@ const normalizeHabitacionFormInput = (input: ServiceFormInput | HabitacionFormIn
     horario: input.horario,
     cupoMaximo: input.cupoMaximo,
     costo: input.costo,
+    codigo: codigo.trim().toUpperCase(),
+    piso,
+    estadoOperativo,
   };
 };
 
@@ -526,6 +705,10 @@ export async function fetchHotelData() {
     reservas: ReservaRow[];
     pagos: PagoRow[];
     configuracionOperativa: ConfiguracionOperativaRow[];
+    hoteles?: FreshHotelRow[];
+    tiposHabitacion?: FreshRoomTypeRow[];
+    habitacionesHotel?: FreshRoomRow[];
+    reservasHotel?: FreshReservationHotelRow[];
   }>('/operational-data');
 
   const {
@@ -764,7 +947,7 @@ export async function fetchHotelData() {
     };
   });
 
-  const habitacionesView: HabitacionView[] = programaciones.map(programacion => {
+  let habitacionesView: HabitacionView[] = programaciones.map(programacion => {
     const actividad = programacion.id_actividad ? actividadesMap.get(programacion.id_actividad) : null;
     const entrenador = programacion.id_entrenador ? personasMap.get(programacion.id_entrenador) : null;
     const sede = programacion.id_sede ? sedesMap.get(programacion.id_sede) : null;
@@ -784,6 +967,7 @@ export async function fetchHotelData() {
       fechaISO: programacion.horario,
       capacidad: programacion.cupo_maximo,
       inscritos,
+      estadoOperativo: inscritos >= programacion.cupo_maximo && programacion.cupo_maximo > 0 ? 'ocupada' : 'disponible',
     };
   });
 
@@ -803,7 +987,7 @@ export async function fetchHotelData() {
     entrenadoresBySede.set(sede.nombre_sede, current);
   }
 
-  const hotelesView: HotelView[] = sedes.map(sede => ({
+  let hotelesView: HotelView[] = sedes.map(sede => ({
     id: sede.id_sede,
     nombre: sede.nombre_sede,
     ubicacion: sede.ubicacion,
@@ -814,7 +998,7 @@ export async function fetchHotelData() {
     reservas: reservasBySede.get(sede.nombre_sede) ?? 0,
   }));
 
-  const estadiasView: EstadiaView[] = reservasView.map((reserva) => ({
+  let estadiasView: EstadiaView[] = reservasView.map((reserva) => ({
     ...reserva,
     huesped: reserva.cliente,
     hotel: reserva.sede,
@@ -825,6 +1009,121 @@ export async function fetchHotelData() {
     noches: DEFAULT_STAY_NIGHTS,
     total: reserva.precioAplicado,
   }));
+
+  if (payload.habitacionesHotel && payload.reservasHotel && payload.hoteles && payload.tiposHabitacion) {
+    const freshHoteles = payload.hoteles;
+    const freshHabitaciones = payload.habitacionesHotel.map((item) => ({
+      ...item,
+      capacidad: toNumber(item.capacidad),
+      tarifa_noche: toNumber(item.tarifa_noche),
+    }));
+    const freshReservasHotel = payload.reservasHotel.map((item) => ({
+      ...item,
+      total_reserva: toNumber(item.total_reserva),
+      anticipo: toNumber(item.anticipo),
+    }));
+    const roomTypesMap = new Map(payload.tiposHabitacion.map((item) => [item.id_tipo_habitacion, item]));
+    const freshHotelsMap = new Map(freshHoteles.map((item) => [item.id_hotel, item]));
+    const freshRoomsMap = new Map(freshHabitaciones.map((item) => [item.id_habitacion, item]));
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(todayStart.getDate() + 1);
+    const activeReservationsByRoom = new Map<string, FreshReservationHotelRow[]>();
+
+    freshReservasHotel
+      .filter((item) => item.estado !== 'cancelada' && item.estado !== 'no_show')
+      .forEach((item) => {
+        const current = activeReservationsByRoom.get(item.id_habitacion) ?? [];
+        current.push(item);
+        activeReservationsByRoom.set(item.id_habitacion, current);
+      });
+
+    habitacionesView = freshHabitaciones.map((room) => {
+      const roomType = room.id_tipo_habitacion ? roomTypesMap.get(room.id_tipo_habitacion) : null;
+      const hotel = freshHotelsMap.get(room.id_hotel);
+      const activeTodayCount = (activeReservationsByRoom.get(room.id_habitacion) ?? []).filter((reservation) => {
+        const checkIn = new Date(reservation.check_in);
+        const checkOut = new Date(reservation.check_out);
+        return checkOut > todayStart && checkIn < tomorrowStart;
+      }).length;
+
+      return {
+        id: room.id_habitacion,
+        nombre: room.nombre_habitacion || room.codigo_habitacion || 'Habitación sin nombre',
+        tipo: roomType?.nombre_tipo ?? 'Habitación',
+        costo: formatCurrency(room.tarifa_noche),
+        responsable: 'Sin responsable',
+        instructor: 'Sin responsable',
+        hotel: hotel?.nombre_hotel ?? 'Sin hotel',
+        sede: hotel?.nombre_hotel ?? 'Sin sede',
+        horario: formatRoomOperationalStatus(room.estado),
+        fechaISO: room.created_at ?? new Date().toISOString(),
+        capacidad: room.capacidad,
+        inscritos: activeTodayCount,
+        estadoOperativo: formatRoomOperationalStatus(room.estado),
+      };
+    });
+
+    const roomCountByHotel = new Map<string, number>();
+    freshHabitaciones.forEach((room) => {
+      roomCountByHotel.set(room.id_hotel, (roomCountByHotel.get(room.id_hotel) ?? 0) + 1);
+    });
+
+    const reservationCountByHotel = new Map<string, number>();
+    freshReservasHotel.forEach((reservation) => {
+      reservationCountByHotel.set(reservation.id_hotel, (reservationCountByHotel.get(reservation.id_hotel) ?? 0) + 1);
+    });
+
+    hotelesView = freshHoteles.map((hotel) => ({
+      id: hotel.id_hotel,
+      nombre: hotel.nombre_hotel,
+      ubicacion: [hotel.ciudad, hotel.direccion].filter(Boolean).join(' - ') || 'Sin ubicación',
+      habitaciones: roomCountByHotel.get(hotel.id_hotel) ?? 0,
+      personalAsignado: 0,
+      actividades: roomCountByHotel.get(hotel.id_hotel) ?? 0,
+      entrenadores: 0,
+      reservas: reservationCountByHotel.get(hotel.id_hotel) ?? 0,
+    }));
+
+    estadiasView = freshReservasHotel.map((reservation) => {
+      const guest = personasMap.get(reservation.id_huesped);
+      const room = freshRoomsMap.get(reservation.id_habitacion);
+      const hotel = freshHotelsMap.get(reservation.id_hotel);
+      const checkIn = reservation.check_in;
+      const checkOut = reservation.check_out;
+      const nights = Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000));
+      const roomReservations = activeReservationsByRoom.get(reservation.id_habitacion) ?? [];
+
+      return {
+        id: reservation.id_reserva_hotel,
+        programacionId: reservation.id_habitacion,
+        huesped: guest?.nombre?.trim() || buildFallbackName('Huesped', reservation.id_huesped, guest?.correo),
+        huespedId: reservation.id_huesped,
+        habitacion: room?.nombre_habitacion ?? room?.codigo_habitacion ?? 'Habitación sin nombre',
+        hotel: hotel?.nombre_hotel ?? 'Sin hotel',
+        responsable: 'Sin responsable',
+        cliente: guest?.nombre?.trim() || buildFallbackName('Cliente', reservation.id_huesped, guest?.correo),
+        clienteId: reservation.id_huesped,
+        servicio: room?.nombre_habitacion ?? room?.codigo_habitacion ?? 'Habitación sin nombre',
+        fecha: checkIn,
+        estado: mapHotelReservationStatus(reservation.estado),
+        sede: hotel?.nombre_hotel ?? 'Sin sede',
+        entrenador: 'Sin responsable',
+        precioAplicado: reservation.total_reserva,
+        capacidad: room?.capacidad ?? 1,
+        inscritos: roomReservations.length,
+        checkIn,
+        checkOut,
+        adultos: reservation.adultos ?? 1,
+        ninos: reservation.ninos ?? 0,
+        noches: nights,
+        total: reservation.total_reserva,
+        observaciones: reservation.observaciones ?? undefined,
+        anticipo: reservation.anticipo ?? 0,
+      };
+    }).sort((left, right) => new Date(left.checkIn).getTime() - new Date(right.checkIn).getTime());
+  }
 
   const inventarioHabitacionesView: InventarioHabitacionView[] = habitacionesView.map((habitacion) => ({
     ...habitacion,
@@ -863,6 +1162,11 @@ export function buildDashboardData(data: HotelDataSnapshot): DashboardData {
   const huespedes = data.huespedesView.length;
   const reservasHoy = data.reservasView.filter(item => startOfDayKey(item.fecha) === today).length;
   const habitaciones = data.habitacionesView.length;
+  const pagosByReserva = data.pagosView.reduce((totals, payment) => {
+    if (!payment.reservaId) return totals;
+    totals.set(payment.reservaId, (totals.get(payment.reservaId) ?? 0) + payment.monto);
+    return totals;
+  }, new Map<string, number>());
 
   const monthlyMap = new Map<string, number>();
   for (const reserva of data.reservasView) {
@@ -895,7 +1199,11 @@ export function buildDashboardData(data: HotelDataSnapshot): DashboardData {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const nuevosHuespedes = data.huespedesView.filter(item => item.fechaRegistro && new Date(item.fechaRegistro) >= thirtyDaysAgo).length;
-  const pagosPendientes = data.reservas.filter(item => item.estado === 'creada').length;
+  const pagosPendientes = data.reservasView.filter((item) => {
+    if (item.estado === 'cancelada') return false;
+    const pagado = pagosByReserva.get(item.id) ?? 0;
+    return item.precioAplicado - pagado > 0.009;
+  }).length;
   const habitacionesLlenas = data.habitacionesView.filter(item => item.inscritos >= item.capacidad && item.capacidad > 0).length;
   const recentActivity = data.reservasView
     .slice()
@@ -962,6 +1270,79 @@ export async function fetchPagosView() {
   return data.pagosView;
 }
 
+const normalizeTariffConfig = (config: TariffConfigView): TariffConfigView => ({
+  ...config,
+  tipoCambio: toNumber(config.tipoCambio),
+  descuentoTerceraEdad: toNumber(config.descuentoTerceraEdad),
+  edadTerceraEdad: toNumber(config.edadTerceraEdad),
+  porcentajeImpuesto: toNumber(config.porcentajeImpuesto),
+});
+
+const normalizeCurrentRoomTariff = (rate: CurrentRoomTariffView): CurrentRoomTariffView => ({
+  ...rate,
+  montoNoche: toNumber(rate.montoNoche),
+});
+
+const normalizeCustomTariff = (rate: CustomTariffView): CustomTariffView => ({
+  ...rate,
+  habitacionId: rate.habitacionId ?? null,
+  habitacion: rate.habitacion ?? null,
+  codigo: rate.codigo ?? null,
+  montoNoche: toNumber(rate.montoNoche),
+  prioridad: toNumber(rate.prioridad),
+});
+
+export async function fetchTariffCatalog(filters?: { hotelId?: string; refresh?: boolean }) {
+  const searchParams = new URLSearchParams();
+  if (filters?.hotelId) searchParams.set('hotelId', filters.hotelId);
+  if (filters?.refresh) searchParams.set('refresh', 'true');
+  const query = searchParams.toString();
+  const catalog = await apiRequest<TariffCatalogView>(`/tarifas${query ? `?${query}` : ''}`);
+  return {
+    config: normalizeTariffConfig(catalog.config),
+    actuales: catalog.actuales.map(normalizeCurrentRoomTariff),
+    personalizadas: catalog.personalizadas.map(normalizeCustomTariff),
+  };
+}
+
+export async function saveTariffConfig(input: TariffConfigInput) {
+  const config = await apiRequest<TariffConfigView>('/tarifas/configuracion', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  return normalizeTariffConfig(config);
+}
+
+export async function createCustomTariff(input: CustomTariffInput) {
+  const tariff = await apiRequest<CustomTariffView>('/tarifas-personalizadas', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return normalizeCustomTariff(tariff);
+}
+
+export async function updateCustomTariff(idTarifa: string, input: CustomTariffInput) {
+  const tariff = await apiRequest<CustomTariffView>(`/tarifas-personalizadas/${idTarifa}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  return normalizeCustomTariff(tariff);
+}
+
+export async function deleteCustomTariff(idTarifa: string) {
+  await apiRequest(`/tarifas-personalizadas/${idTarifa}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function updateCurrentRoomTariff(roomId: string, montoNoche: number) {
+  const room = await apiRequest<CurrentRoomTariffView>(`/habitaciones/${roomId}/tarifa`, {
+    method: 'PATCH',
+    body: JSON.stringify({ montoNoche }),
+  });
+  return normalizeCurrentRoomTariff(room);
+}
+
 export async function createPersonal(input: PersonalFormInput) {
   await apiRequest('/personal', {
     method: 'POST',
@@ -1017,7 +1398,7 @@ export async function saveOperationalSettings(settings: OperationalSettings) {
   });
 }
 
-export async function createEstadia(input: ReservationCreateInput | EstadiaCreateInput) {
+export async function createEstadia(input: ReservationCreateInput | EstadiaCreateInput | HotelReservationCreateInput) {
   const normalized = normalizeEstadiaCreateInput(input);
 
   await apiRequest('/estadias', {
@@ -1026,6 +1407,34 @@ export async function createEstadia(input: ReservationCreateInput | EstadiaCreat
       huespedId: normalized.clienteId,
       habitacionId: normalized.actividadId,
       estado: normalized.estado ?? 'confirmada',
+      precioAplicado: normalized.precioAplicado,
+      checkIn: normalized.checkIn,
+      checkOut: normalized.checkOut,
+      noches: normalized.noches,
+      adultos: normalized.adultos,
+      ninos: normalized.ninos,
+      observaciones: normalized.observaciones,
+      pago: normalized.pago,
+    }),
+  });
+}
+
+export async function updateEstadia(idReserva: string, input: ReservationCreateInput | EstadiaCreateInput | HotelReservationCreateInput) {
+  const normalized = normalizeEstadiaCreateInput(input);
+
+  await apiRequest(`/estadias/${idReserva}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      huespedId: normalized.clienteId,
+      habitacionId: normalized.actividadId,
+      estado: normalized.estado ?? 'confirmada',
+      precioAplicado: normalized.precioAplicado,
+      checkIn: normalized.checkIn,
+      checkOut: normalized.checkOut,
+      noches: normalized.noches,
+      adultos: normalized.adultos,
+      ninos: normalized.ninos,
+      observaciones: normalized.observaciones,
       pago: normalized.pago,
     }),
   });
@@ -1058,6 +1467,9 @@ export async function createHabitacion(input: ServiceFormInput | HabitacionFormI
       horario: normalized.horario,
       cupoMaximo: normalized.cupoMaximo,
       costo: normalized.costo,
+      codigoHabitacion: normalized.codigo,
+      piso: normalized.piso,
+      estadoOperativo: normalized.estadoOperativo,
     }),
   });
 }
@@ -1066,6 +1478,60 @@ export async function deleteHabitacion(idProgramacion: string) {
   await apiRequest(`/habitaciones/${idProgramacion}`, {
     method: 'DELETE',
   });
+}
+
+export async function fetchRoomBlocks(filters?: { hotelId?: string; fechaInicio?: string; fechaFin?: string }) {
+  const searchParams = new URLSearchParams();
+
+  if (filters?.hotelId) searchParams.set('hotelId', filters.hotelId);
+  if (filters?.fechaInicio) searchParams.set('fechaInicio', filters.fechaInicio);
+  if (filters?.fechaFin) searchParams.set('fechaFin', filters.fechaFin);
+
+  const query = searchParams.toString();
+  return apiRequest<RoomBlockView[]>(`/bloqueos-habitacion${query ? `?${query}` : ''}`);
+}
+
+export async function createRoomBlock(input: {
+  habitacionId: string;
+  fechaInicio: string;
+  fechaFin: string;
+  motivo: string;
+  permitirConReservas?: boolean;
+}) {
+  return apiRequest<RoomBlockView>('/bloqueos-habitacion', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteRoomBlock(idBloqueo: string) {
+  await apiRequest(`/bloqueos-habitacion/${idBloqueo}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function createQuickGuest(input: {
+  nombre: string;
+  correo: string;
+  telefono?: string;
+  ciudad?: string;
+  direccion?: string;
+}) {
+  const payload = await apiRequest<Partial<HuespedView> & { id?: string; id_huesped?: string; id_persona?: string; nombre?: string; correo?: string; telefono?: string; ciudad?: string; fechaRegistro?: string }>('/huespedes', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  return {
+    id: payload.id ?? payload.id_huesped ?? payload.id_persona ?? '',
+    nombre: payload.nombre ?? input.nombre,
+    correo: payload.correo ?? input.correo,
+    telefono: payload.telefono,
+    ciudad: payload.ciudad ?? '',
+    fechaRegistro: payload.fechaRegistro ?? new Date().toISOString(),
+    estado: 'Sin reservas' as const,
+    pagos: [],
+  } satisfies HuespedView;
 }
 
 export async function createPayment(input: PaymentFormInput) {

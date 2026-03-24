@@ -12,6 +12,7 @@ const AdminHome = lazy(() => import('./components/AdminHome'));
 const Habitaciones = lazy(() => import('./components/Habitaciones'));
 const Reservas = lazy(() => import('./components/Reservas'));
 const Pagos = lazy(() => import('./components/Pagos'));
+const Tarifas = lazy(() => import('./components/Tarifas'));
 const Usuarios = lazy(() => import('./components/Usuarios'));
 const Huespedes = lazy(() => import('./components/Huespedes'));
 const PersonalHotelero = lazy(() => import('./components/PersonalHotelero'));
@@ -82,6 +83,7 @@ function App() {
 								<Route path="habitaciones" element={<RoleGate allowedRoles={HOTEL_CONSOLE_ROLES}><Habitaciones /></RoleGate>} />
 								<Route path="reservas" element={<RoleGate allowedRoles={HOTEL_CONSOLE_ROLES}><Reservas /></RoleGate>} />
 								<Route path="pagos" element={<RoleGate allowedRoles={HOTEL_CONSOLE_ROLES}><Pagos /></RoleGate>} />
+								<Route path="tarifas" element={<RoleGate allowedRoles={HOTEL_CONSOLE_ROLES}><Tarifas /></RoleGate>} />
 								<Route path="usuarios" element={<RoleGate allowedRoles={HOTEL_CONSOLE_ROLES}><Usuarios /></RoleGate>} />
 								<Route path="huespedes" element={<RoleGate allowedRoles={HOTEL_CONSOLE_ROLES}><Huespedes /></RoleGate>} />
 								<Route path="personal" element={<RoleGate allowedRoles={HOTEL_CONSOLE_ROLES}><PersonalHotelero /></RoleGate>} />

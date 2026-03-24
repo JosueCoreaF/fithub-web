@@ -26,6 +26,12 @@ const IconPayments = () => (
   </svg>
 );
 
+const IconRates = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M5 7h14M5 12h9M5 17h14M18 5l2 2-2 2M15 15l2 2-2 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 const IconMembers = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path d="M12 12a3.5 3.5 0 1 0-3.5-3.5A3.5 3.5 0 0 0 12 12zm-6 7a6 6 0 0 1 12 0M18 12.5a2.5 2.5 0 1 0-1.6-4.4M19 19a4.8 4.8 0 0 0-2.1-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -77,7 +83,8 @@ const items: Array<{ to: string; label: string; icon: React.FC; roles: UserRole[
   { to: '/habitaciones', label: 'Habitaciones', icon: IconServices, roles: ['admin', 'super_admin'] },
   { to: '/reservas', label: 'Reservas', icon: IconReservations, roles: ['admin', 'super_admin'] },
   { to: '/pagos', label: 'Cobros', icon: IconPayments, roles: ['admin', 'super_admin'] },
-  { to: '/usuarios', label: 'Usuarios', icon: IconUsers, roles: ['admin', 'super_admin'] },
+  { to: '/tarifas', label: 'Tarifas', icon: IconRates, roles: ['admin', 'super_admin'] },
+  { to: '/usuarios', label: 'Directorio', icon: IconUsers, roles: ['admin', 'super_admin'] },
   { to: '/huespedes', label: 'Huespedes', icon: IconMembers, roles: ['admin', 'super_admin'] },
   { to: '/personal', label: 'Personal', icon: IconTrainers, roles: ['admin', 'super_admin'] },
   { to: '/hoteles', label: 'Hoteles', icon: IconLocations, roles: ['admin', 'super_admin'] },

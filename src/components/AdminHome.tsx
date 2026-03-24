@@ -290,7 +290,7 @@ export const AdminHome: React.FC = () => {
                   const [status, detail] = item.split(' — ');
 
                   return (
-                    <article key={item} className="recent-activity-item">
+                    <article key={`${index}-${item}`} className="recent-activity-item">
                       <div className="recent-activity-marker">{index + 1}</div>
                       <div className="recent-activity-content">
                         <div className="recent-activity-status">{status}</div>

@@ -942,10 +942,17 @@ code {
 /* Vistas específicas */
 .page { padding: 12px 0 }
 .muted { color: var(--muted); margin-top:6px }
+.stats-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px }
+.stats-grid > * { min-width:0 }
+.stats-grid .stat-card { display:grid; gap:8px; padding:16px; border-radius:18px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--feature-panel-soft) 82%, transparent) }
+.stats-grid .stat-card span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.08em; margin:0 }
+.stats-grid .stat-card strong { color:var(--text-h); font-size:32px; line-height:1; font-weight:800 }
+.stats-grid .stat-card small { color:var(--text); font-size:13px; line-height:1.35 }
 .reservas-card-head { display:flex; justify-content:space-between; align-items:center; gap:12px }
 .reservas-select { min-width:160px }
 .reservas-range-controls { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap }
 .reservas-date-input { min-width:144px }
+.reservas-layout > div { min-width:0 }
 .reservas-feature-card,
 .reservas-summary-card { background: var(--feature-panel-bg); border-color: var(--shell-border-strong) }
 .reservas-payment-banner { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; padding:14px 16px; margin-bottom:16px; border-radius:18px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--feature-panel-soft) 84%, transparent) }
@@ -957,6 +964,214 @@ code {
 .reservas-mini-head { display:flex; justify-content:space-between; align-items:center; gap:12px }
 .reservas-mini-track { width:100%; height:10px; border-radius:999px; background: var(--feature-panel-track); overflow:hidden }
 .reservas-mini-fill { height:100%; border-radius:999px; box-shadow: 0 8px 20px rgba(0,0,0,0.12) }
+.reservas-occupancy-meta { display:flex; align-items:stretch; gap:10px; flex-wrap:wrap }
+.reservas-occupancy-meta > div { min-width:132px; padding:10px 12px; border-radius:14px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--feature-panel-soft) 86%, transparent); display:grid; gap:4px }
+.reservas-occupancy-meta strong { color:var(--text-h); font-size:22px; line-height:1 }
+.reservas-occupancy-meta span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em }
+.occupancy-legend { display:flex; gap:12px; flex-wrap:wrap }
+.occupancy-legend-item { display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-size:13px }
+.occupancy-legend-swatch { width:12px; height:12px; border-radius:999px; display:inline-flex }
+.occupancy-legend-swatch.ok { background: linear-gradient(90deg,#10b981,#059669) }
+.occupancy-legend-swatch.warn { background: linear-gradient(90deg,#f59e0b,#f97316) }
+.occupancy-legend-swatch.available { background: color-mix(in srgb, var(--feature-panel-track) 88%, transparent); border:1px solid var(--shell-border) }
+.occupancy-legend-swatch.room-warn { background: linear-gradient(90deg, rgba(245,158,11,0.72), rgba(234,179,8,0.82)) }
+.occupancy-legend-swatch.room-danger { background: linear-gradient(90deg, rgba(239,68,68,0.8), rgba(190,24,93,0.84)) }
+.occupancy-board-wrap {
+  --occupancy-room-width: 220px;
+  --occupancy-day-width: 84px;
+  width:100%;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  border-radius:18px;
+  border:1px solid var(--shell-border);
+  background: color-mix(in srgb, var(--feature-panel-soft) 82%, transparent)
+}
+.occupancy-board { width:max-content; min-width:100%; border-collapse:separate; border-spacing:0 }
+.occupancy-board th,
+.occupancy-board td { border-right:1px solid var(--shell-border); border-bottom:1px solid var(--shell-border) }
+.occupancy-board thead th { position:sticky; top:0; z-index:3; min-width:var(--occupancy-day-width); padding:10px 8px; text-align:center; background: color-mix(in srgb, var(--feature-panel-solid) 96%, transparent) }
+.occupancy-board thead th span { display:block; color:var(--muted); font-size:11px; text-transform:uppercase }
+.occupancy-board thead th strong { display:block; color:var(--text-h); font-size:16px }
+.occupancy-board thead th.is-today { background: color-mix(in srgb, var(--accent-bg) 70%, var(--feature-panel-solid)); box-shadow: inset 0 -2px 0 var(--accent) }
+.occupancy-room-head,
+.occupancy-room-cell { position:sticky; left:0; z-index:4; min-width:var(--occupancy-room-width); max-width:var(--occupancy-room-width); background: color-mix(in srgb, var(--feature-panel-solid) 98%, transparent) }
+.occupancy-room-cell { padding:12px; text-align:left }
+.occupancy-room-label { display:grid; gap:4px }
+.occupancy-room-label strong { color:var(--text-h); font-size:14px }
+.occupancy-room-label span,
+.occupancy-room-label small { color:var(--muted); font-size:12px }
+.occupancy-cell { min-width:var(--occupancy-day-width); height:72px; padding:6px; vertical-align:middle; background: color-mix(in srgb, var(--card-bg-soft) 82%, transparent) }
+.occupancy-cell.available { color:var(--muted); text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.04em }
+.occupancy-available-button { width:100%; min-height:64px; border:none; appearance:none; background:transparent; color:inherit; cursor:pointer; text-transform:inherit; letter-spacing:inherit; font:inherit }
+.occupancy-available-button span { display:flex; align-items:center; justify-content:center; width:100%; height:100% }
+.occupancy-room-block-button { width:100%; min-height:64px; border:none; appearance:none; background:transparent; color:inherit; cursor:pointer; font:inherit; padding:0 }
+.occupancy-room-block-button span { display:flex; align-items:center; justify-content:center; width:100%; min-height:64px; border-radius:12px; color:var(--text-h); font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding:0 8px; text-align:center }
+.occupancy-cell.status-ok { background: linear-gradient(180deg, rgba(16,185,129,0.18), rgba(5,150,105,0.24)) }
+.occupancy-cell.status-info { background: linear-gradient(180deg, rgba(56,189,248,0.2), rgba(37,99,235,0.22)) }
+.occupancy-cell.status-warn { background: linear-gradient(180deg, rgba(245,158,11,0.2), rgba(249,115,22,0.22)) }
+.occupancy-cell.status-danger { background: linear-gradient(180deg, rgba(239,68,68,0.18), rgba(190,24,93,0.22)) }
+.occupancy-cell.room-warn { background: linear-gradient(180deg, rgba(245,158,11,0.16), rgba(250,204,21,0.16)); color:var(--text-h); text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.04em }
+.occupancy-cell.room-danger { background: linear-gradient(180deg, rgba(239,68,68,0.14), rgba(190,24,93,0.18)); color:var(--text-h); text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.04em }
+.occupancy-cell.has-booking,
+.occupancy-cell.room-state { padding:3px 0; }
+.occupancy-cell.has-booking.segment-start,
+.occupancy-cell.room-state.segment-start,
+.occupancy-cell.has-booking.segment-single,
+.occupancy-cell.room-state.segment-single { padding-left:3px; }
+.occupancy-cell.has-booking.segment-end,
+.occupancy-cell.room-state.segment-end,
+.occupancy-cell.has-booking.segment-single,
+.occupancy-cell.room-state.segment-single { padding-right:3px; }
+.occupancy-cell.has-booking.segment-start,
+.occupancy-cell.has-booking.segment-middle,
+.occupancy-cell.room-state.segment-start,
+.occupancy-cell.room-state.segment-middle { border-right-color: transparent; }
+.occupancy-cell.is-today { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent) }
+.occupancy-booking-chip { display:grid; gap:6px; padding:8px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background: rgba(8, 17, 29, 0.18) }
+.occupancy-booking-chip.is-pending { border-color: rgba(254, 215, 170, 0.62); background: linear-gradient(180deg, rgba(120, 53, 15, 0.34), rgba(154, 52, 18, 0.26)); box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.22), 0 10px 22px rgba(120, 53, 15, 0.18) }
+.occupancy-booking-button { width:100%; min-height:64px; height:100%; text-align:left; cursor:pointer; border:none; appearance:none; align-content:center }
+.occupancy-cell.has-booking.segment-start .occupancy-booking-chip { border-radius:12px 0 0 12px; }
+.occupancy-cell.has-booking.segment-middle .occupancy-booking-chip { border-radius:0; }
+.occupancy-cell.has-booking.segment-end .occupancy-booking-chip { border-radius:0 12px 12px 0; }
+.occupancy-cell.has-booking.segment-single .occupancy-booking-chip { border-radius:12px; }
+.occupancy-cell.has-booking.segment-middle .occupancy-booking-chip,
+.occupancy-cell.has-booking.segment-end .occupancy-booking-chip { border-left-color: transparent; }
+.occupancy-booking-chip strong { color:var(--text-h); font-size:12px; line-height:1.2 }
+.occupancy-booking-chip span { color:rgba(255,255,255,0.72); font-size:11px; text-transform:uppercase; letter-spacing:.04em }
+.occupancy-booking-status { display:inline-flex; align-items:center; justify-content:center; width:max-content; min-height:20px; padding:0 8px; border-radius:999px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase }
+.occupancy-booking-status.status-warn { background: rgba(255, 237, 213, 0.92); color: #9a3412 }
+.occupancy-booking-status.status-info { background: rgba(224, 242, 254, 0.94); color: #1d4ed8 }
+.occupancy-booking-status.status-ok { background: rgba(220, 252, 231, 0.92); color: #166534 }
+.occupancy-booking-status.status-danger { background: rgba(254, 226, 226, 0.92); color: #b91c1c }
+.occupancy-cell.room-state span { display:flex; align-items:center; justify-content:center; min-height:64px; border-radius:12px; }
+.occupancy-cell.room-state.segment-start span { border-radius:12px 0 0 12px; }
+.occupancy-cell.room-state.segment-middle span { border-radius:0; }
+.occupancy-cell.room-state.segment-end span { border-radius:0 12px 12px 0; }
+.reservas-table-actions { display:flex; gap:8px; flex-wrap:wrap }
+.reservas-block-item { gap:8px }
+.modal.reservas-editor-modal { display:flex; flex-direction:column; width:calc(100vw - 32px); max-width:calc(100vw - 32px); height:calc(100vh - 32px); max-height:calc(100vh - 32px); padding:16px; overflow:hidden; scrollbar-gutter:stable }
+.reservas-editor-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:14px }
+.reservas-editor-subtitle { margin:0; max-width:520px; line-height:1.45 }
+.reservas-editor-head-actions { display:flex; align-items:center; gap:10px; flex-shrink:0 }
+.reservas-modal-close { width:38px; height:38px; border-radius:999px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--shell-panel) 92%, transparent); color:var(--text-h); font-size:1.45rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer }
+.reservas-wizard-shell { display:grid; gap:14px; flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding:0 4px 14px 0 }
+.reservas-checkout-shell { display:grid; grid-template-columns:minmax(0, 1.45fr) minmax(320px, 0.9fr); gap:16px; align-items:start }
+.reservas-checkout-main,
+.reservas-checkout-sidebar { display:grid; gap:14px; align-content:start }
+.reservas-checkout-main,
+.reservas-checkout-sidebar,
+.reservas-step-panel,
+.reservas-pricing-card,
+.reservas-pricing-card-checkout { min-width:0 }
+.reservas-checkout-sidebar { position:sticky; top:16px }
+.reservas-checkout-panel { display:grid; gap:18px }
+.reservas-checkout-panel-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px }
+.reservas-checkout-panel-head h4 { margin:4px 0 0; color:var(--text-h); font-size:1.22rem }
+.reservas-guest-creation-card { display:grid; gap:12px; padding-top:12px; border-top:1px solid var(--shell-border) }
+.reservas-editor-grid-tariffs-wide { grid-template-columns:repeat(2, minmax(0, 1fr)) }
+.reservas-discount-toggle { margin:-2px 0 0 }
+.reservas-pricing-grid-wide { grid-template-columns:repeat(2, minmax(0, 1fr)) }
+.reservas-checkout-summary-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px }
+.reservas-pricing-card-checkout { margin-bottom:0; display:grid; gap:14px }
+.reservas-pricing-grid-checkout { grid-template-columns:repeat(2, minmax(0, 1fr)) }
+.reservas-summary-total-pill-sidebar { width:100%; min-width:0 }
+.reservas-checkout-confirmation { min-height:100% }
+.reservas-confirmation-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px }
+.reservas-confirmation-list article { padding:16px; border-radius:18px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 78%, transparent) }
+.reservas-confirmation-list strong { display:block; margin-bottom:6px; color:var(--text-h) }
+.reservas-confirmation-list p { margin:0; color:var(--text); line-height:1.5; overflow-wrap:anywhere }
+.reservas-wizard-progress { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-bottom:2px }
+.reservas-wizard-step { display:grid; gap:4px; text-align:left; padding:11px 14px; border-radius:14px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 74%, transparent); color:var(--text); transition: border-color .18s ease, transform .18s ease, background .18s ease }
+.reservas-wizard-step strong { color:var(--text-h); font-size:1rem }
+.reservas-wizard-step small { color:var(--muted); line-height:1.35; font-size:12px }
+.reservas-wizard-step-index { display:inline-flex; width:max-content; padding:5px 8px; border-radius:999px; background: color-mix(in srgb, var(--shell-panel) 94%, transparent); color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.08em }
+.reservas-wizard-step.is-current { border-color: color-mix(in srgb, var(--accent) 40%, var(--shell-border)); background: color-mix(in srgb, var(--accent-bg) 78%, transparent); transform: translateY(-1px) }
+.reservas-wizard-step.is-current .reservas-wizard-step-index { background: linear-gradient(90deg, var(--accent), var(--accent-strong)); color:#fff }
+.reservas-wizard-step.is-done { border-color: color-mix(in srgb, var(--success) 34%, var(--shell-border)); background: color-mix(in srgb, var(--success) 9%, var(--card-bg-soft)) }
+.reservas-wizard-step.is-done .reservas-wizard-step-index { background: color-mix(in srgb, var(--success) 88%, transparent); color:#fff }
+.reservas-wizard-step.is-pending { opacity:.82 }
+.reservas-wizard-step:disabled { cursor:default }
+.reservas-step-layout { display:grid; grid-template-columns:minmax(0, 1.75fr) minmax(280px, 0.85fr); gap:14px; align-items:start }
+.reservas-step-layout.has-new-guest { grid-template-columns:minmax(0, 1.45fr) minmax(360px, 1fr) }
+.reservas-step-layout-pricing { grid-template-columns:minmax(0, 1.15fr) minmax(340px, 0.9fr) }
+.reservas-step-panel { padding:14px; border-radius:18px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 76%, transparent) }
+.reservas-step-panel-side { display:grid; gap:12px; align-content:start }
+.reservas-editor-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px 16px; margin-bottom:12px }
+.reservas-editor-grid label,
+.reservas-editor-notes { display:grid; gap:6px; color:var(--muted); font-size:13px }
+.reservas-editor-grid label:last-child { grid-column:1 / -1 }
+.reservas-editor-grid-data { grid-template-columns:repeat(2, minmax(0, 1fr)); margin-bottom:0 }
+.reservas-editor-grid-tariffs { grid-template-columns:repeat(2, minmax(0, 1fr)); margin-bottom:0 }
+.reservas-field-span-2 { grid-column:span 1 }
+.reservas-field-span-full { grid-column:1 / -1 }
+.reservas-field-span-full textarea.input { resize:vertical; max-inline-size:100%; overflow:auto }
+.reservas-editor-grid label span,
+.reservas-editor-notes span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em }
+.reservas-editor-detail-grid { margin-bottom:14px }
+.reservas-editor-value { min-height:42px; display:flex; align-items:center; padding:10px 12px; border-radius:10px; background: var(--shell-panel); border:1px solid var(--shell-border); color:var(--text-h) }
+.reservas-editor-value-multiline { align-items:flex-start; white-space:pre-wrap }
+.reservas-editor-notes { margin-bottom:14px }
+.reservas-editor-notes textarea { width:100%; box-sizing:border-box; resize:vertical }
+.reservas-editor-checkbox { display:flex; align-items:flex-start; gap:10px; margin-bottom:14px; color:var(--text); font-size:13px; line-height:1.45 }
+.reservas-editor-checkbox input { margin-top:2px }
+.reservas-editor-actions { display:flex; justify-content:flex-end; gap:10px; align-items:center; flex-wrap:wrap }
+.reservas-editor-actions-wizard { display:grid; grid-template-columns:minmax(0, 1fr); justify-content:stretch; gap:12px; position:sticky; bottom:0; z-index:3; padding:12px 0 0; margin-top:6px; border-top:1px solid var(--shell-border); background:linear-gradient(180deg, color-mix(in srgb, var(--shell-panel-strong) 12%, transparent), var(--shell-panel-strong) 36%, var(--shell-panel-strong) 100%) }
+.reservas-editor-footer-meta { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; flex:1 1 auto; min-width:0 }
+.reservas-editor-footer-meta > div { padding:12px 14px; border-radius:14px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 76%, transparent); min-width:0 }
+.reservas-editor-footer-meta span { display:block; color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px }
+.reservas-editor-footer-meta strong { display:block; color:var(--text-h); font-size:1rem; line-height:1.3; overflow-wrap:anywhere }
+.reservas-editor-footer-meta small { display:block; color:var(--muted); line-height:1.4; margin-top:6px; overflow-wrap:anywhere }
+.reservas-editor-action-buttons { display:flex; justify-content:flex-end; gap:10px; align-items:center; flex-wrap:wrap; min-width:0 }
+.reservas-pricing-card { margin-bottom:12px; padding:14px 16px; border-radius:16px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--feature-panel-bg) 78%, transparent) }
+.reservas-pricing-card-side { margin-bottom:0; height:100% }
+.reservas-pricing-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px }
+.reservas-pricing-head strong { display:block; color:var(--text-h); margin-bottom:4px }
+.reservas-pricing-head span { color:var(--muted); font-size:12px; line-height:1.45 }
+.reservas-pricing-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px }
+.reservas-pricing-grid div { padding:12px; border-radius:14px; background: color-mix(in srgb, var(--card-bg-soft) 72%, transparent); border:1px solid var(--shell-border) }
+.reservas-pricing-grid span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em }
+.reservas-pricing-grid strong { color:var(--text-h); font-size:1rem }
+.reservas-editor-grid > label,
+.reservas-pricing-grid > div { min-width:0 }
+.reservas-summary-stage { display:grid; gap:16px }
+.reservas-summary-hero { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:18px; border-radius:20px; border:1px solid var(--shell-border-strong); background: var(--feature-panel-bg) }
+.reservas-summary-hero h4 { margin:0 0 8px; color:var(--text-h); font-size:1.3rem }
+.reservas-summary-total-pill { min-width:220px; padding:16px; border-radius:18px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 90%, white 4%), color-mix(in srgb, var(--accent-strong) 92%, white 4%)); color:#fff; box-shadow: var(--shadow) }
+.reservas-summary-total-pill span { display:block; font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.86; margin-bottom:8px }
+.reservas-summary-total-pill strong { font-size:1.45rem; line-height:1.1 }
+.reservas-summary-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px }
+.reservas-summary-grid-finance { grid-template-columns:repeat(4, minmax(0, 1fr)) }
+.reservas-summary-card-block { padding:16px; border-radius:18px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 78%, transparent); min-width:0 }
+.reservas-summary-card-block.accent { background: color-mix(in srgb, var(--accent-bg) 76%, transparent); border-color: color-mix(in srgb, var(--accent) 32%, var(--shell-border)) }
+.reservas-summary-card-block span { display:block; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px }
+.reservas-summary-card-block strong { display:block; color:var(--text-h); font-size:1.05rem; line-height:1.35; overflow-wrap:anywhere }
+.reservas-summary-card-block small { display:block; color:var(--muted); line-height:1.45; margin-top:8px; overflow-wrap:anywhere }
+.reservas-summary-note { padding:16px 18px; border-radius:18px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--shell-panel) 84%, transparent) }
+.reservas-summary-note strong { display:block; color:var(--text-h); margin-bottom:8px }
+.reservas-summary-note p { margin:0; color:var(--text); line-height:1.55 }
+.reservas-side-stack { display:grid; gap:10px }
+.reservas-side-stack-form { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px 12px }
+.reservas-side-field-full { grid-column:1 / -1 }
+.reservas-side-toggle { margin-bottom:6px }
+.reservas-side-note { padding:14px 16px; border-radius:16px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--shell-panel) 88%, transparent) }
+.reservas-side-note strong { display:block; color:var(--text-h); margin-bottom:6px }
+.reservas-side-note p { margin:0; color:var(--text); line-height:1.5; overflow-wrap:anywhere }
+.reservas-side-note.muted-surface { background: color-mix(in srgb, var(--card-bg-soft) 82%, transparent) }
+.reservas-alert-modal { max-width:480px }
+.reservas-alert-modal.success { border-color: color-mix(in srgb, var(--success) 42%, var(--shell-border)) }
+.reservas-alert-modal.warning { border-color: color-mix(in srgb, var(--warning) 46%, var(--shell-border)); animation: modal-pop .28s cubic-bezier(.22, 1, .36, 1) both, alert-shake .42s ease .06s both }
+.reservas-alert-modal.danger { border-color: color-mix(in srgb, var(--danger) 44%, var(--shell-border)); animation: modal-pop .28s cubic-bezier(.22, 1, .36, 1) both, alert-shake .48s ease .06s both }
+.reservas-alert-modal.info { border-color: color-mix(in srgb, var(--accent) 44%, var(--shell-border)) }
+.reservas-alert-head { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:14px; align-items:flex-start }
+.reservas-alert-head h3 { margin:0 0 8px; color:var(--text-h); font-size:1.2rem }
+.reservas-alert-head p { margin:0; color:var(--text); line-height:1.55 }
+.reservas-alert-icon { width:48px; height:48px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; color:#fff; box-shadow: 0 14px 28px rgba(2, 6, 23, 0.16) }
+.reservas-alert-icon.success { background: linear-gradient(135deg, #22c55e, #16a34a) }
+.reservas-alert-icon.warning { background: linear-gradient(135deg, #f59e0b, #ea580c) }
+.reservas-alert-icon.danger { background: linear-gradient(135deg, #ef4444, #be123c) }
+.reservas-alert-icon.info { background: linear-gradient(135deg, #38bdf8, #2563eb) }
+.reservas-alert-actions { display:flex; justify-content:flex-end; margin-top:18px }
 
 .sede-distribution-card { background: var(--feature-panel-bg); border:1px solid var(--shell-border-strong); border-radius:16px; padding:16px; box-shadow: var(--shadow) }
 .sede-distribution-title { color: var(--text-h); font-size: 13px; font-weight: 700; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.6px }
@@ -989,10 +1204,45 @@ code {
 .table th, .table td { padding:12px 10px; text-align:left }
 .pill { padding:6px 10px; border-radius:999px; font-weight:600 }
 .pill.ok { background: linear-gradient(90deg,#10b981,#059669); color:#fff }
+.pill.info { background: linear-gradient(90deg,#38bdf8,#2563eb); color:#fff }
 .pill.warn { background: linear-gradient(90deg,#f59e0b,#f97316); color:#fff }
 .pill.danger { background: linear-gradient(90deg,#ef4444,#be185d); color:#fff }
 
+@media (max-width: 1180px) {
+  .modal.reservas-editor-modal { width:calc(100vw - 24px); max-width:calc(100vw - 24px); height:calc(100vh - 24px); max-height:calc(100vh - 24px) }
+  .reservas-checkout-shell,
+  .reservas-step-layout,
+  .reservas-step-layout-pricing { grid-template-columns:1fr }
+  .reservas-checkout-sidebar { position:static }
+  .reservas-editor-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) }
+  .reservas-editor-grid-data { grid-template-columns:repeat(2, minmax(0, 1fr)) }
+}
+
+@media (max-width: 980px) {
+  .modal.reservas-editor-modal { width:calc(100vw - 20px); max-width:calc(100vw - 20px); height:calc(100vh - 20px); max-height:calc(100vh - 20px) }
+  .reservas-wizard-progress,
+  .reservas-editor-grid { grid-template-columns:1fr }
+  .reservas-editor-grid-data,
+  .reservas-editor-grid-tariffs { grid-template-columns:1fr }
+  .reservas-field-span-2 { grid-column:auto }
+  .reservas-pricing-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) }
+  .reservas-pricing-grid-wide,
+  .reservas-pricing-grid-checkout,
+  .reservas-checkout-summary-grid,
+  .reservas-confirmation-list { grid-template-columns:1fr }
+  .reservas-summary-hero { flex-direction:column }
+  .reservas-summary-total-pill { min-width:0; width:100% }
+  .reservas-summary-grid,
+  .reservas-summary-grid-finance { grid-template-columns:1fr }
+  .reservas-editor-footer-meta { grid-template-columns:1fr }
+  .reservas-side-stack-form { grid-template-columns:1fr }
+  .reservas-checkout-panel-head { flex-direction:column }
+}
+
 @media (max-width: 640px) {
+  .modal-overlay { padding:10px }
+  .modal.reservas-editor-modal { width:calc(100vw - 20px); max-width:calc(100vw - 20px); height:calc(100vh - 20px); max-height:calc(100vh - 20px); padding:14px }
+  .stats-grid { grid-template-columns:1fr }
   .card-list { grid-template-columns: 1fr }
   .cards-row { grid-template-columns:1fr }
   .trainer-dashboard-header { align-items:flex-start }
@@ -1007,6 +1257,21 @@ code {
   .reservas-payment-banner { flex-direction:column; align-items:flex-start }
   .reservas-payment-fields { width:100%; grid-template-columns:1fr }
   .reservas-mini-head { align-items:flex-start; flex-direction:column }
+  .reservas-occupancy-meta { width:100% }
+  .reservas-occupancy-meta > div { flex:1 1 140px }
+  .reservas-editor-head { flex-direction:column; align-items:flex-start }
+  .reservas-editor-grid { grid-template-columns:1fr }
+  .reservas-editor-actions { justify-content:stretch }
+  .reservas-editor-actions-wizard,
+  .reservas-editor-action-buttons { width:100%; justify-content:stretch }
+  .reservas-editor-footer-meta { width:100% }
+  .reservas-wizard-shell { padding-bottom:128px }
+  .reservas-editor-action-buttons .btn { width:100% }
+  .occupancy-board-wrap { --occupancy-room-width: 170px; --occupancy-day-width: 72px }
+  .occupancy-room-head,
+  .occupancy-room-cell { min-width:170px; max-width:170px }
+  .occupancy-board thead th,
+  .occupancy-cell { min-width:72px }
   .sede-distribution-chartWrap { flex-basis:100% }
   .recent-activity-head { flex-direction:column; align-items:flex-start }
   .weekly-activity-summary { flex-direction:column; align-items:flex-start }
@@ -1039,7 +1304,7 @@ code {
 
 .card-actions { margin-top:12px; display:flex; gap:8px; align-items:center }
 .signup-inline { display:flex; gap:8px; margin-top:8px }
-.input { padding:10px 12px; border-radius:10px; background: var(--shell-panel); border:1px solid var(--shell-border); color:var(--text-h) }
+.input { width:100%; max-width:100%; min-width:0; box-sizing:border-box; padding:10px 12px; border-radius:10px; background: var(--shell-panel); border:1px solid var(--shell-border); color:var(--text-h) }
 
 /* Member card styles */
 .member-card { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:start; gap:12px; min-height:150px; height:100%; padding:14px; border-radius:12px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03) }
@@ -1054,8 +1319,8 @@ code {
 .btn.small { padding:6px 8px; font-size:12px }
 
 /* Modal */
-.modal-overlay { position:fixed; inset:0; background: var(--overlay-bg); display:flex; align-items:center; justify-content:center; z-index:60; backdrop-filter: blur(6px); animation: overlay-fade .22s ease both }
-.modal { background: var(--shell-panel-strong); padding:18px; border-radius:18px; max-width:560px; width:100%; color:var(--text-h); border:1px solid var(--shell-border); box-shadow: var(--shadow); animation: modal-pop .28s cubic-bezier(.22, 1, .36, 1) both }
+.modal-overlay { position:fixed; inset:0; padding:16px; background: var(--overlay-bg); display:flex; align-items:flex-start; justify-content:center; overflow:auto; z-index:60; backdrop-filter: blur(6px); animation: overlay-fade .22s ease both }
+.modal { background: var(--shell-panel-strong); padding:18px; border-radius:18px; max-width:560px; width:100%; max-height:calc(100vh - 32px); margin:auto 0; overflow:auto; color:var(--text-h); border:1px solid var(--shell-border); box-shadow: var(--shadow); animation: modal-pop .28s cubic-bezier(.22, 1, .36, 1) both }
 
 /* Trainer card styles */
 .trainer-card { display:flex; align-items:center; justify-content:space-between; padding:12px; border-radius:12px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03) }
@@ -1621,6 +1886,10 @@ var(--feature-panel-solid) }
 .users-actions { display:flex; gap:8px; flex-wrap:wrap }
 .users-section-head { margin-bottom:14px }
 .users-section-head h3 { margin:6px 0 0; color:var(--text-h) }
+.users-guidance-list { display:grid; gap:12px }
+.users-guidance-item { padding:14px 16px; border-radius:16px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 74%, transparent) }
+.users-guidance-item strong { display:block; color:var(--text-h); margin-bottom:6px }
+.users-guidance-item p { margin:0; line-height:1.55 }
 .users-settings-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; margin-bottom:14px }
 .users-toggle-list { margin-bottom:14px }
 .users-modal { max-width:760px }
@@ -1629,6 +1898,30 @@ var(--feature-panel-solid) }
 .users-checkbox-row { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:14px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 76%, transparent); color:var(--text-h) }
 .users-checkbox-row input { accent-color: var(--accent) }
 .users-modal-actions { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap }
+
+.tarifas-page { display:grid; gap:18px }
+.tarifas-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px }
+.tarifas-summary-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px }
+.tarifas-summary-card { padding:18px; background: var(--feature-panel-bg); border-color: var(--shell-border-strong) }
+.tarifas-summary-card span { display:block; color:var(--muted); font-size:13px; margin-bottom:8px }
+.tarifas-summary-card strong { color:var(--text-h); font-size:1.45rem }
+.tarifas-summary-card small { color:var(--muted); display:block; margin-top:6px }
+.tarifas-layout { display:grid; grid-template-columns:minmax(0, .9fr) minmax(0, 1.1fr); gap:14px }
+.tarifas-config-card,
+.tarifas-custom-card,
+.tarifas-table-card { background: var(--feature-panel-bg); border-color: var(--shell-border-strong) }
+.tarifas-section-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:14px }
+.tarifas-section-head h3 { margin:6px 0 0; color:var(--text-h) }
+.tarifas-form-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px }
+.tarifas-form-grid label { display:grid; gap:6px; color:var(--muted); font-size:13px }
+.tarifas-form-grid label span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em }
+.tarifas-form-full { grid-column:1 / -1 }
+.tarifas-textarea { width:100%; box-sizing:border-box; resize:vertical }
+.tarifas-form-actions { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap }
+.tarifas-table-head { align-items:flex-end }
+.tarifas-filter { min-width:220px }
+.tarifas-table { min-width:980px }
+.tarifas-rate-modal { max-width:420px }
 
 @media (max-width: 800px) {
   .service-grid { grid-template-columns: 1fr }
@@ -1642,6 +1935,8 @@ var(--feature-panel-solid) }
   .sedes-results { white-space:normal }
   .sedes-modal-head { flex-direction:column; align-items:flex-start }
   .sedes-modal-grid { grid-template-columns:1fr }
+  .reservas-pricing-head { flex-direction:column; align-items:flex-start }
+  .reservas-pricing-grid { grid-template-columns:1fr }
   .trainers-overview-top { flex-direction:column; align-items:flex-start }
   .trainers-overview-stats { grid-template-columns:1fr }
   .trainers-load-rowHead { align-items:flex-start; flex-direction:column }
@@ -1683,7 +1978,11 @@ var(--feature-panel-solid) }
   .users-top-grid,
   .users-toolbar,
   .users-settings-grid,
-  .users-form-grid { grid-template-columns:1fr }
+  .users-form-grid,
+  .tarifas-summary-grid,
+  .tarifas-layout,
+  .tarifas-form-grid { grid-template-columns:1fr }
+  .tarifas-header { flex-direction:column; align-items:stretch }
   .client-home-spotlight-metrics { grid-template-columns:1fr }
   .payments-executive-head { flex-direction:column; align-items:flex-start }
   .payments-executive-controls { width:100%; justify-items:start }
@@ -1735,6 +2034,15 @@ var(--feature-panel-solid) }
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+@keyframes alert-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
 }
 
 @keyframes section-reveal {

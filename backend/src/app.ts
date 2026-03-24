@@ -26,6 +26,8 @@ const asyncHandler = (
 
 const routeId = (request: Request) => String(request.params.id ?? '');
 
+type Queryable = Pick<typeof pool, 'query'>;
+
 async function tableExists(qualifiedName: string) {
   const result = await pool.query('select to_regclass($1) as regclass', [qualifiedName]);
   return Boolean(result.rows[0]?.regclass);
@@ -55,6 +57,203 @@ const mapLegacyStatusToHotel = (status: string) => {
   if (status === 'completada') return 'check_out';
   return 'cancelada';
 };
+
+const supportedCurrencies = ['USD', 'HNL'] as const;
+type SupportedCurrency = (typeof supportedCurrencies)[number];
+
+const normalizeSupportedCurrency = (value: unknown, fallback: SupportedCurrency): SupportedCurrency => (
+  typeof value === 'string' && (supportedCurrencies as readonly string[]).includes(value.toUpperCase())
+    ? value.toUpperCase() as SupportedCurrency
+    : fallback
+);
+
+const DEFAULT_USD_HNL_RATE = 24.5;
+
+const getPairExchangeRate = (baseCurrency: SupportedCurrency, secondaryCurrency: SupportedCurrency, usdHnlRate: number) => {
+  if (baseCurrency === secondaryCurrency) return 1;
+  if (baseCurrency === 'USD' && secondaryCurrency === 'HNL') return usdHnlRate;
+  if (baseCurrency === 'HNL' && secondaryCurrency === 'USD') return 1 / usdHnlRate;
+  return 1;
+};
+
+async function fetchUsdHnlRate() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+  try {
+    const response = await fetch('https://open.er-api.com/v6/latest/USD', { signal: controller.signal });
+    if (!response.ok) throw new Error('Tipo de cambio no disponible.');
+    const payload = await response.json() as { rates?: Record<string, number> };
+    const rate = Number(payload.rates?.HNL ?? 0);
+    if (!Number.isFinite(rate) || rate <= 0) throw new Error('Tipo de cambio inválido.');
+    return rate;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+type HotelPricingConfig = {
+  baseCurrency: SupportedCurrency;
+  secondaryCurrency: SupportedCurrency;
+  exchangeRate: number;
+  exchangeUpdatedAt: string;
+  seniorDiscountPercent: number;
+  seniorAge: number;
+  taxPercent: number;
+};
+
+async function getHotelPricingConfig(db: Queryable = pool, forceRefresh = false): Promise<HotelPricingConfig> {
+  const result = await db.query(
+    `
+      select
+        moneda,
+        moneda_alterna,
+        tipo_cambio_base,
+        tipo_cambio_actualizado_en,
+        descuento_tercera_edad,
+        edad_tercera_edad,
+        porcentaje_impuesto
+      from public.configuracion_hotelera
+      where id_config = 'default'
+      limit 1
+    `,
+  );
+
+  const row = result.rows[0] ?? {};
+  const baseCurrency = normalizeSupportedCurrency(row.moneda, 'USD');
+  const secondaryCurrency = normalizeSupportedCurrency(row.moneda_alterna, baseCurrency === 'USD' ? 'HNL' : 'USD');
+  let exchangeRate = Number(row.tipo_cambio_base ?? DEFAULT_USD_HNL_RATE);
+  let exchangeUpdatedAt = row.tipo_cambio_actualizado_en
+    ? new Date(row.tipo_cambio_actualizado_en).toISOString()
+    : new Date(0).toISOString();
+  const lastUpdatedMs = new Date(exchangeUpdatedAt).getTime();
+  const shouldRefresh = baseCurrency !== secondaryCurrency
+    && (forceRefresh || !Number.isFinite(lastUpdatedMs) || Date.now() - lastUpdatedMs > 6 * 60 * 60 * 1000);
+
+  if (shouldRefresh) {
+    try {
+      const usdHnlRate = await fetchUsdHnlRate();
+      exchangeRate = getPairExchangeRate(baseCurrency, secondaryCurrency, usdHnlRate);
+      exchangeUpdatedAt = new Date().toISOString();
+      await db.query(
+        `
+          update public.configuracion_hotelera
+          set tipo_cambio_base = $2,
+              tipo_cambio_actualizado_en = $3,
+              moneda = $4,
+              moneda_alterna = $5
+          where id_config = 'default'
+        `,
+        [
+          'default',
+          exchangeRate,
+          exchangeUpdatedAt,
+          baseCurrency,
+          secondaryCurrency,
+        ],
+      );
+    } catch {
+      exchangeRate = Number.isFinite(exchangeRate) && exchangeRate > 0 ? exchangeRate : getPairExchangeRate(baseCurrency, secondaryCurrency, DEFAULT_USD_HNL_RATE);
+    }
+  }
+
+  return {
+    baseCurrency,
+    secondaryCurrency,
+    exchangeRate: Number.isFinite(exchangeRate) && exchangeRate > 0 ? exchangeRate : 1,
+    exchangeUpdatedAt,
+    seniorDiscountPercent: Number(row.descuento_tercera_edad ?? 0),
+    seniorAge: Number(row.edad_tercera_edad ?? 60),
+    taxPercent: Number(row.porcentaje_impuesto ?? 0),
+  };
+}
+
+const tariffConfigPayloadSchema = z.object({
+  monedaBase: z.enum(supportedCurrencies),
+  monedaAlterna: z.enum(supportedCurrencies),
+  descuentoTerceraEdad: z.number().min(0).max(100),
+  edadTerceraEdad: z.number().int().min(50).max(100),
+}).refine((payload) => payload.monedaBase !== payload.monedaAlterna, {
+  message: 'La moneda base y la moneda alterna deben ser distintas.',
+  path: ['monedaAlterna'],
+});
+
+const customTariffPayloadSchema = z.object({
+  hotelId: z.string().uuid(),
+  habitacionId: z.string().uuid().optional().nullable(),
+  nombre: z.string().trim().min(2),
+  descripcion: z.string().trim().optional(),
+  montoNoche: z.number().min(0),
+  moneda: z.enum(supportedCurrencies),
+  activa: z.boolean().optional(),
+  prioridad: z.number().int().min(0).max(999).optional(),
+});
+
+const roomTariffUpdatePayloadSchema = z.object({
+  montoNoche: z.number().min(0),
+});
+
+async function syncFreshReservationPaymentStatus(reservationId: string, db: Queryable = pool) {
+  const reservationResult = await db.query(
+    'select estado, total_reserva from public.reservas_hotel where id_reserva_hotel = $1',
+    [reservationId],
+  );
+
+  const reservation = reservationResult.rows[0];
+  if (!reservation || reservation.estado === 'cancelada') return;
+
+  const paidResult = await db.query(
+    'select coalesce(sum(monto), 0)::numeric as total from public.pagos_hotel where id_reserva_hotel = $1',
+    [reservationId],
+  );
+
+  const totalPaid = Number(paidResult.rows[0]?.total ?? 0);
+  const totalReservation = Number(reservation.total_reserva ?? 0);
+
+  const nextStatus = totalReservation > 0 && totalPaid >= totalReservation
+    ? 'check_out'
+    : totalPaid > 0
+      ? 'confirmada'
+      : 'pendiente';
+
+  if (reservation.estado !== nextStatus) {
+    await db.query(
+      'update public.reservas_hotel set estado = $2 where id_reserva_hotel = $1',
+      [reservationId, nextStatus],
+    );
+  }
+}
+
+async function syncLegacyReservationPaymentStatus(reservationId: string, db: Queryable = pool) {
+  const reservationResult = await db.query(
+    'select estado, precio_aplicado from public.reservas where id_reserva = $1',
+    [reservationId],
+  );
+
+  const reservation = reservationResult.rows[0];
+  if (!reservation || reservation.estado === 'cancelada') return;
+
+  const paidResult = await db.query(
+    'select coalesce(sum(monto), 0)::numeric as total from public.pagos where id_reserva = $1',
+    [reservationId],
+  );
+
+  const totalPaid = Number(paidResult.rows[0]?.total ?? 0);
+  const totalReservation = Number(reservation.precio_aplicado ?? 0);
+
+  const nextStatus = totalReservation > 0 && totalPaid >= totalReservation
+    ? 'completada'
+    : totalPaid > 0
+      ? 'confirmada'
+      : 'creada';
+
+  if (reservation.estado !== nextStatus) {
+    await db.query(
+      'update public.reservas set estado = $2 where id_reserva = $1',
+      [reservationId, nextStatus],
+    );
+  }
+}
 
 async function getFreshBootstrapData() {
   const [hoteles, huespedes, personal] = await Promise.all([
@@ -280,6 +479,8 @@ async function getFreshReservationById(id: string) {
         r.check_in as horario,
         $2::text as estado,
         r.total_reserva as "precioAplicado",
+        r.adultos,
+        r.ninos,
         hotel.nombre_hotel as sede
       from public.reservas_hotel r
       join public.huespedes h on h.id_huesped = r.id_huesped
@@ -318,6 +519,33 @@ async function getFreshPaymentById(id: string) {
       join public.huespedes h on h.id_huesped = r.id_huesped
       join public.habitaciones room on room.id_habitacion = r.id_habitacion
       where p.id_pago_hotel = $1
+    `,
+    [id],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function getFreshRoomById(id: string) {
+  const result = await pool.query(
+    `
+      select
+        h.id_habitacion as id,
+        h.id_hotel as "hotelId",
+        hotel.nombre_hotel as hotel,
+        h.id_tipo_habitacion as "tipoHabitacionId",
+        t.nombre_tipo as tipo,
+        h.codigo_habitacion as codigo,
+        h.nombre_habitacion as nombre,
+        h.piso,
+        h.capacidad,
+        h.tarifa_noche as tarifa,
+        h.estado,
+        h.created_at as "createdAt"
+      from public.habitaciones h
+      join public.hoteles hotel on hotel.id_hotel = h.id_hotel
+      join public.tipos_habitacion t on t.id_tipo_habitacion = h.id_tipo_habitacion
+      where h.id_habitacion = $1
     `,
     [id],
   );
@@ -413,6 +641,13 @@ const personPayloadSchema = z.object({
   especialidad: z.string().trim().optional(),
   estadoLaboral: z.enum(['Activo', 'Inactivo', 'Vacaciones']).optional(),
 });
+const guestPayloadSchema = z.object({
+  nombre: z.string().trim().min(3),
+  correo: z.string().trim().email(),
+  telefono: z.string().trim().min(7).optional(),
+  ciudad: z.string().trim().optional(),
+  direccion: z.string().trim().optional(),
+});
 
 const activityPayloadSchema = z.object({
   nombreActividad: z.string().trim().min(3).optional(),
@@ -423,9 +658,12 @@ const activityPayloadSchema = z.object({
   hotelId: z.string().uuid().optional(),
   entrenadorId: z.string().uuid().nullable().optional(),
   responsableId: z.string().uuid().nullable().optional(),
-  horario: z.string().datetime(),
+  horario: z.string().datetime().optional(),
   cupoMaximo: z.number().int().positive(),
   costo: z.number().min(0),
+  codigoHabitacion: z.string().trim().min(1).max(30).regex(/^[A-Za-z0-9-]+$/).optional(),
+  piso: z.number().int().min(0).optional(),
+  estadoOperativo: z.enum(['disponible', 'ocupada', 'mantenimiento', 'bloqueada', 'limpieza']).optional(),
 }).transform((payload) => ({
   nombreActividad: payload.nombreHabitacion ?? payload.nombreActividad ?? '',
   descripcion: payload.descripcion,
@@ -435,6 +673,9 @@ const activityPayloadSchema = z.object({
   horario: payload.horario,
   cupoMaximo: payload.cupoMaximo,
   costo: payload.costo,
+  codigoHabitacion: payload.codigoHabitacion?.trim().toUpperCase() ?? '',
+  piso: payload.piso ?? 1,
+  estadoOperativo: payload.estadoOperativo ?? 'disponible',
 }));
 
 const reservationPayloadSchema = z.object({
@@ -446,6 +687,8 @@ const reservationPayloadSchema = z.object({
   checkIn: z.string().datetime().optional(),
   checkOut: z.string().datetime().optional(),
   noches: z.number().int().positive().optional(),
+  adultos: z.number().int().positive().optional(),
+  ninos: z.number().int().min(0).optional(),
   observaciones: z.string().trim().optional(),
   estado: z.enum(['creada', 'confirmada', 'cancelada', 'completada']).default('creada'),
   precioAplicado: z.number().min(0).optional(),
@@ -461,6 +704,8 @@ const reservationPayloadSchema = z.object({
   checkIn: payload.checkIn,
   checkOut: payload.checkOut,
   noches: payload.noches,
+  adultos: payload.adultos ?? 1,
+  ninos: payload.ninos ?? 0,
   observaciones: payload.observaciones,
   estado: payload.estado,
   precioAplicado: payload.precioAplicado,
@@ -495,6 +740,14 @@ const paymentPayloadSchema = z.object({
   fechaPago: z.string().datetime().optional(),
   metodoPago: z.enum(['efectivo', 'tarjeta', 'transferencia', 'deposito', 'otro']),
   referencia: z.string().trim().min(1).optional(),
+});
+
+const roomBlockPayloadSchema = z.object({
+  habitacionId: z.string().uuid(),
+  fechaInicio: z.string().datetime(),
+  fechaFin: z.string().datetime(),
+  motivo: z.string().trim().min(3),
+  permitirConReservas: z.boolean().optional(),
 });
 
 const operationalSettingsPayloadSchema = z.object({
@@ -541,6 +794,54 @@ async function getPersonById(id: string) {
       left join public.entrenadores e on e.id_persona = p.id_persona
       where p.id_persona = $1
       group by p.id_persona, c.id_persona, c.fecha_registro, e.id_persona, e.especialidad, e.estado_laboral
+    `,
+    [id],
+  );
+
+  return result.rows[0] ?? null;
+}
+async function getFreshGuestById(id: string) {
+  const result = await pool.query(
+    `
+      select
+        h.id_huesped as id,
+        h.nombre_completo as nombre,
+        h.correo,
+        h.telefono,
+        h.ciudad,
+        h.direccion,
+        h.fecha_registro as "fechaRegistro"
+      from public.huespedes h
+      where h.id_huesped = $1
+    `,
+    [id],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function getCustomTariffById(id: string) {
+  const result = await pool.query(
+    `
+      select
+        t.id_tarifa_personalizada as id,
+        t.id_hotel as "hotelId",
+        h.nombre_hotel as hotel,
+        t.id_habitacion as "habitacionId",
+        room.nombre_habitacion as habitacion,
+        room.codigo_habitacion as codigo,
+        t.nombre_tarifa as nombre,
+        t.descripcion,
+        t.moneda,
+        t.monto_noche as "montoNoche",
+        t.activa,
+        t.prioridad,
+        t.created_at as "createdAt",
+        t.updated_at as "updatedAt"
+      from public.tarifas_personalizadas_hotel t
+      join public.hoteles h on h.id_hotel = t.id_hotel
+      left join public.habitaciones room on room.id_habitacion = t.id_habitacion
+      where t.id_tarifa_personalizada = $1
     `,
     [id],
   );
@@ -1101,6 +1402,99 @@ app.post('/api/personas', asyncHandler(async (request, response) => {
   const created = await getPersonById(person);
   response.status(201).json(created);
 }));
+app.post('/api/huespedes', asyncHandler(async (request, response) => {
+  const payload = guestPayloadSchema.parse(request.body);
+
+  if (await hasFreshHotelSchema()) {
+    const guest = await withTransaction(async (client) => {
+      const existing = await client.query(
+        'select id_huesped from public.huespedes where lower(correo) = lower($1) limit 1',
+        [payload.correo],
+      );
+
+      if (existing.rowCount > 0) {
+        const guestId = existing.rows[0].id_huesped as string;
+        await client.query(
+          `
+            update public.huespedes
+            set nombre_completo = $2,
+                correo = $3,
+                telefono = $4,
+                ciudad = $5,
+                direccion = $6
+            where id_huesped = $1
+          `,
+          [guestId, payload.nombre, payload.correo.toLowerCase(), payload.telefono ?? null, payload.ciudad ?? null, payload.direccion ?? null],
+        );
+        return getFreshGuestById(guestId);
+      }
+
+      const inserted = await client.query(
+        `
+          insert into public.huespedes (
+            nombre_completo,
+            correo,
+            telefono,
+            ciudad,
+            direccion
+          )
+          values ($1, $2, $3, $4, $5)
+          returning id_huesped
+        `,
+        [payload.nombre, payload.correo.toLowerCase(), payload.telefono ?? null, payload.ciudad ?? null, payload.direccion ?? null],
+      );
+
+      return getFreshGuestById(inserted.rows[0].id_huesped as string);
+    });
+
+    response.status(201).json(guest ?? {});
+    return;
+  }
+
+  const client = await withTransaction(async (db) => {
+    const existing = await db.query(
+      'select id_persona from public.personas where lower(correo) = lower($1) limit 1',
+      [payload.correo],
+    );
+
+    let personId = existing.rows[0]?.id_persona as string | undefined;
+
+    if (personId) {
+      await db.query(
+        `
+          update public.personas
+          set nombre = $2,
+              correo = $3,
+              direccion_ciudad = $4,
+              direccion_calle = $5
+          where id_persona = $1
+        `,
+        [personId, payload.nombre, payload.correo.toLowerCase(), payload.ciudad ?? null, payload.direccion ?? null],
+      );
+    } else {
+      const inserted = await db.query(
+        `
+          insert into public.personas (nombre, correo, direccion_ciudad, direccion_calle)
+          values ($1, $2, $3, $4)
+          returning id_persona
+        `,
+        [payload.nombre, payload.correo.toLowerCase(), payload.ciudad ?? null, payload.direccion ?? null],
+      );
+      personId = inserted.rows[0].id_persona as string;
+    }
+
+    await db.query('insert into public.clientes (id_persona) values ($1) on conflict (id_persona) do nothing', [personId]);
+
+    if (payload.telefono) {
+      await db.query('delete from public.persona_telefonos where id_persona = $1', [personId]);
+      await db.query('insert into public.persona_telefonos (id_persona, telefono) values ($1, $2)', [personId, payload.telefono]);
+    }
+
+    return getPersonById(personId);
+  });
+
+  response.status(201).json(client ?? {});
+}));
 
 app.put('/api/personas/:id', asyncHandler(async (request, response) => {
   const id = routeId(request);
@@ -1287,6 +1681,14 @@ app.get('/api/habitaciones', asyncHandler(async (_request, response) => {
 
 app.get('/api/habitaciones/:id', asyncHandler(async (request, response) => {
   const id = routeId(request);
+
+  if (await hasFreshHotelSchema()) {
+    const row = await getFreshRoomById(id);
+    if (!row) throw new ApiError(404, 'Habitación no encontrada.');
+    response.json(row);
+    return;
+  }
+
   const row = await getActivityById(id);
   if (!row) throw new ApiError(404, 'Actividad no encontrada.');
   response.json(withHotelActivityAliases(row));
@@ -1294,6 +1696,75 @@ app.get('/api/habitaciones/:id', asyncHandler(async (request, response) => {
 
 app.post('/api/habitaciones', asyncHandler(async (request, response) => {
   const payload = activityPayloadSchema.parse(request.body);
+
+  if (await hasFreshHotelSchema()) {
+    const createdId = await withTransaction(async (client) => {
+      const hotel = await client.query('select 1 from public.hoteles where id_hotel = $1', [payload.sedeId]);
+      if (hotel.rowCount === 0) throw new ApiError(404, 'El hotel indicado no existe.');
+
+      const duplicate = await client.query(
+        'select 1 from public.habitaciones where id_hotel = $1 and codigo_habitacion = $2 limit 1',
+        [payload.sedeId, payload.codigoHabitacion],
+      );
+      if (duplicate.rowCount > 0) {
+        throw new ApiError(409, 'Ya existe una habitación con ese código en el hotel seleccionado.');
+      }
+
+      const roomTypeName = payload.tipo === 'Clase grupal' ? 'Estándar' : 'Suite';
+      const existingType = await client.query(
+        'select id_tipo_habitacion from public.tipos_habitacion where lower(nombre_tipo) = lower($1) limit 1',
+        [roomTypeName],
+      );
+
+      const roomTypeId = existingType.rows[0]?.id_tipo_habitacion
+        ?? (await client.query(
+          `
+            insert into public.tipos_habitacion (nombre_tipo, descripcion, capacidad_base, tarifa_base)
+            values ($1, $2, $3, $4)
+            returning id_tipo_habitacion
+          `,
+          [roomTypeName, payload.descripcion, payload.cupoMaximo, payload.costo],
+        )).rows[0].id_tipo_habitacion;
+
+      const created = await client.query(
+        `
+          insert into public.habitaciones (
+            id_hotel,
+            id_tipo_habitacion,
+            codigo_habitacion,
+            nombre_habitacion,
+            piso,
+            capacidad,
+            tarifa_noche,
+            estado
+          )
+          values ($1, $2, $3, $4, $5, $6, $7, $8)
+          returning id_habitacion
+        `,
+        [
+          payload.sedeId,
+          roomTypeId,
+          payload.codigoHabitacion,
+          payload.nombreActividad,
+          payload.piso,
+          payload.cupoMaximo,
+          payload.costo,
+          payload.estadoOperativo,
+        ],
+      );
+
+      return created.rows[0].id_habitacion as string;
+    });
+
+    const room = await getFreshRoomById(createdId);
+    response.status(201).json(room ?? { id: createdId });
+    return;
+  }
+
+  if (!payload.horario) {
+    throw new ApiError(400, 'La fecha de disponibilidad es obligatoria.');
+  }
+
   if (new Date(payload.horario).getTime() < Date.now()) {
     throw new ApiError(400, 'No se puede crear una actividad en un horario pasado.');
   }
@@ -1353,6 +1824,10 @@ app.put('/api/habitaciones/:id', asyncHandler(async (request, response) => {
   const existing = await getActivityById(id);
   if (!existing) throw new ApiError(404, 'Actividad no encontrada.');
 
+  if (!payload.horario) {
+    throw new ApiError(400, 'La fecha de disponibilidad es obligatoria.');
+  }
+
   await withTransaction(async (client) => {
     const hotel = await client.query('select 1 from public.sedes where id_sede = $1', [payload.sedeId]);
     if (hotel.rowCount === 0) throw new ApiError(404, 'El hotel indicado no existe.');
@@ -1387,12 +1862,414 @@ app.put('/api/habitaciones/:id', asyncHandler(async (request, response) => {
   response.json(withHotelActivityAliases(activity ?? {}));
 }));
 
+app.patch('/api/habitaciones/:id/tarifa', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    throw new ApiError(400, 'La actualización directa de tarifas solo está disponible en el esquema hotelero actual.');
+  }
+
+  const id = routeId(request);
+  const payload = roomTariffUpdatePayloadSchema.parse(request.body);
+  const existing = await getFreshRoomById(id);
+  if (!existing) throw new ApiError(404, 'Habitación no encontrada.');
+
+  await pool.query(
+    'update public.habitaciones set tarifa_noche = $2 where id_habitacion = $1',
+    [id, payload.montoNoche],
+  );
+
+  const room = await getFreshRoomById(id);
+  response.json(room ?? {});
+}));
+
+app.get('/api/tarifas', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    throw new ApiError(400, 'El catálogo de tarifas solo está disponible en el esquema hotelero actual.');
+  }
+
+  const hotelId = typeof request.query.hotelId === 'string' ? request.query.hotelId : null;
+  const forceRefresh = String(request.query.refresh ?? '').toLowerCase() === 'true';
+  const config = await getHotelPricingConfig(pool, forceRefresh);
+
+  const [currentRates, customRates] = await Promise.all([
+    pool.query(
+      `
+        select
+          room.id_habitacion as id,
+          room.id_hotel as "hotelId",
+          h.nombre_hotel as hotel,
+          room.id_tipo_habitacion as "tipoHabitacionId",
+          t.nombre_tipo as tipo,
+          room.codigo_habitacion as codigo,
+          room.nombre_habitacion as habitacion,
+          room.tarifa_noche as "montoNoche",
+          room.estado
+        from public.habitaciones room
+        join public.hoteles h on h.id_hotel = room.id_hotel
+        join public.tipos_habitacion t on t.id_tipo_habitacion = room.id_tipo_habitacion
+        where ($1::uuid is null or room.id_hotel = $1::uuid)
+        order by h.nombre_hotel asc, room.codigo_habitacion asc
+      `,
+      [hotelId],
+    ),
+    pool.query(
+      `
+        select
+          t.id_tarifa_personalizada as id,
+          t.id_hotel as "hotelId",
+          h.nombre_hotel as hotel,
+          t.id_habitacion as "habitacionId",
+          room.nombre_habitacion as habitacion,
+          room.codigo_habitacion as codigo,
+          t.nombre_tarifa as nombre,
+          t.descripcion,
+          t.moneda,
+          t.monto_noche as "montoNoche",
+          t.activa,
+          t.prioridad,
+          t.created_at as "createdAt",
+          t.updated_at as "updatedAt"
+        from public.tarifas_personalizadas_hotel t
+        join public.hoteles h on h.id_hotel = t.id_hotel
+        left join public.habitaciones room on room.id_habitacion = t.id_habitacion
+        where ($1::uuid is null or t.id_hotel = $1::uuid)
+        order by h.nombre_hotel asc, t.prioridad desc, t.updated_at desc
+      `,
+      [hotelId],
+    ),
+  ]);
+
+  response.json({
+    config: {
+      monedaBase: config.baseCurrency,
+      monedaAlterna: config.secondaryCurrency,
+      tipoCambio: config.exchangeRate,
+      actualizadoEn: config.exchangeUpdatedAt,
+      descuentoTerceraEdad: config.seniorDiscountPercent,
+      edadTerceraEdad: config.seniorAge,
+      porcentajeImpuesto: config.taxPercent,
+    },
+    actuales: currentRates.rows,
+    personalizadas: customRates.rows,
+  });
+}));
+
+app.put('/api/tarifas/configuracion', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    throw new ApiError(400, 'La configuración tarifaria solo está disponible en el esquema hotelero actual.');
+  }
+
+  const payload = tariffConfigPayloadSchema.parse(request.body);
+
+  await pool.query(
+    `
+      update public.configuracion_hotelera
+      set moneda = $2,
+          moneda_alterna = $3,
+          descuento_tercera_edad = $4,
+          edad_tercera_edad = $5
+      where id_config = 'default'
+    `,
+    ['default', payload.monedaBase, payload.monedaAlterna, payload.descuentoTerceraEdad, payload.edadTerceraEdad],
+  );
+
+  const config = await getHotelPricingConfig(pool, true);
+  response.json({
+    monedaBase: config.baseCurrency,
+    monedaAlterna: config.secondaryCurrency,
+    tipoCambio: config.exchangeRate,
+    actualizadoEn: config.exchangeUpdatedAt,
+    descuentoTerceraEdad: config.seniorDiscountPercent,
+    edadTerceraEdad: config.seniorAge,
+    porcentajeImpuesto: config.taxPercent,
+  });
+}));
+
+app.post('/api/tarifas-personalizadas', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    throw new ApiError(400, 'Las tarifas personalizadas solo están disponibles en el esquema hotelero actual.');
+  }
+
+  const payload = customTariffPayloadSchema.parse(request.body);
+  if (payload.habitacionId) {
+    const room = await getFreshRoomById(payload.habitacionId);
+    if (!room) throw new ApiError(404, 'Habitación no encontrada para la tarifa personalizada.');
+    if (room.hotelId !== payload.hotelId) {
+      throw new ApiError(400, 'La habitación seleccionada no pertenece al hotel indicado.');
+    }
+  }
+
+  const created = await pool.query(
+    `
+      insert into public.tarifas_personalizadas_hotel (
+        id_hotel,
+        id_habitacion,
+        nombre_tarifa,
+        descripcion,
+        moneda,
+        monto_noche,
+        activa,
+        prioridad
+      )
+      values ($1, $2, $3, $4, $5, $6, $7, $8)
+      returning id_tarifa_personalizada
+    `,
+    [
+      payload.hotelId,
+      payload.habitacionId ?? null,
+      payload.nombre,
+      payload.descripcion ?? null,
+      payload.moneda,
+      payload.montoNoche,
+      payload.activa ?? true,
+      payload.prioridad ?? 0,
+    ],
+  );
+
+  const tariff = await getCustomTariffById(created.rows[0].id_tarifa_personalizada as string);
+  response.status(201).json(tariff ?? {});
+}));
+
+app.put('/api/tarifas-personalizadas/:id', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    throw new ApiError(400, 'Las tarifas personalizadas solo están disponibles en el esquema hotelero actual.');
+  }
+
+  const id = routeId(request);
+  const payload = customTariffPayloadSchema.parse(request.body);
+  const existing = await getCustomTariffById(id);
+  if (!existing) throw new ApiError(404, 'Tarifa personalizada no encontrada.');
+  if (payload.habitacionId) {
+    const room = await getFreshRoomById(payload.habitacionId);
+    if (!room) throw new ApiError(404, 'Habitación no encontrada para la tarifa personalizada.');
+    if (room.hotelId !== payload.hotelId) {
+      throw new ApiError(400, 'La habitación seleccionada no pertenece al hotel indicado.');
+    }
+  }
+
+  await pool.query(
+    `
+      update public.tarifas_personalizadas_hotel
+      set id_hotel = $2,
+          id_habitacion = $3,
+          nombre_tarifa = $4,
+          descripcion = $5,
+          moneda = $6,
+          monto_noche = $7,
+          activa = $8,
+          prioridad = $9
+      where id_tarifa_personalizada = $1
+    `,
+    [
+      id,
+      payload.hotelId,
+      payload.habitacionId ?? null,
+      payload.nombre,
+      payload.descripcion ?? null,
+      payload.moneda,
+      payload.montoNoche,
+      payload.activa ?? true,
+      payload.prioridad ?? 0,
+    ],
+  );
+
+  const tariff = await getCustomTariffById(id);
+  response.json(tariff ?? {});
+}));
+
+app.delete('/api/tarifas-personalizadas/:id', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    throw new ApiError(400, 'Las tarifas personalizadas solo están disponibles en el esquema hotelero actual.');
+  }
+
+  const id = routeId(request);
+  const existing = await getCustomTariffById(id);
+  if (!existing) throw new ApiError(404, 'Tarifa personalizada no encontrada.');
+
+  await pool.query('delete from public.tarifas_personalizadas_hotel where id_tarifa_personalizada = $1', [id]);
+  response.status(204).send();
+}));
+
 app.delete('/api/habitaciones/:id', asyncHandler(async (request, response) => {
   const id = routeId(request);
+
+  if (await hasFreshHotelSchema()) {
+    const existing = await getFreshRoomById(id);
+    if (!existing) throw new ApiError(404, 'Habitación no encontrada.');
+
+    const reservations = await pool.query(
+      `
+        select count(*)::int as total
+        from public.reservas_hotel
+        where id_habitacion = $1
+          and estado not in ('cancelada', 'check_out', 'no_show')
+      `,
+      [id],
+    );
+
+    if ((reservations.rows[0]?.total ?? 0) > 0) {
+      throw new ApiError(409, 'No se puede eliminar la habitación porque tiene reservas activas asociadas.');
+    }
+
+    await pool.query('delete from public.habitaciones where id_habitacion = $1', [id]);
+    response.status(204).send();
+    return;
+  }
+
   const existing = await getActivityById(id);
   if (!existing) throw new ApiError(404, 'Actividad no encontrada.');
 
   await pool.query('delete from public.programacion_actividades where id_programacion = $1', [id]);
+  response.status(204).send();
+}));
+
+app.get('/api/bloqueos-habitacion', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    response.json([]);
+    return;
+  }
+
+  const hotelId = typeof request.query.hotelId === 'string' ? request.query.hotelId : null;
+  const fechaInicio = typeof request.query.fechaInicio === 'string' ? request.query.fechaInicio : null;
+  const fechaFin = typeof request.query.fechaFin === 'string' ? request.query.fechaFin : null;
+
+  const result = await pool.query(
+    `
+      select
+        b.id_bloqueo as id,
+        b.id_habitacion as "habitacionId",
+        h.nombre_habitacion as habitacion,
+        h.codigo_habitacion as codigo,
+        h.id_hotel as "hotelId",
+        hotel.nombre_hotel as hotel,
+        b.fecha_inicio as "fechaInicio",
+        b.fecha_fin as "fechaFin",
+        b.motivo,
+        b.created_at as "createdAt"
+      from public.bloqueos_habitacion b
+      join public.habitaciones h on h.id_habitacion = b.id_habitacion
+      join public.hoteles hotel on hotel.id_hotel = h.id_hotel
+      where ($1::uuid is null or h.id_hotel = $1::uuid)
+        and ($2::timestamptz is null or b.fecha_fin > $2::timestamptz)
+        and ($3::timestamptz is null or b.fecha_inicio < $3::timestamptz)
+      order by b.fecha_inicio asc, h.codigo_habitacion asc
+    `,
+    [hotelId, fechaInicio, fechaFin],
+  );
+
+  response.json(result.rows);
+}));
+
+app.post('/api/bloqueos-habitacion', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    throw new ApiError(400, 'Los bloqueos por fechas solo están disponibles con el esquema hotelero actual.');
+  }
+
+  const payload = roomBlockPayloadSchema.parse(request.body);
+  const start = new Date(payload.fechaInicio);
+  const end = new Date(payload.fechaFin);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    throw new ApiError(400, 'El rango de fechas del bloqueo no es válido.');
+  }
+
+  const created = await withTransaction(async (client) => {
+    const roomResult = await client.query(
+      `
+        select id_habitacion, id_hotel
+        from public.habitaciones
+        where id_habitacion = $1
+      `,
+      [payload.habitacionId],
+    );
+
+    const room = roomResult.rows[0];
+    if (!room) throw new ApiError(404, 'La habitación indicada no existe.');
+
+    if (!payload.permitirConReservas) {
+      const overlappingReservations = await client.query(
+        `
+          select count(*)::int as total
+          from public.reservas_hotel
+          where id_habitacion = $1
+            and estado not in ('cancelada', 'check_out', 'no_show')
+            and check_out > $2::timestamptz
+            and check_in < $3::timestamptz
+        `,
+        [payload.habitacionId, payload.fechaInicio, payload.fechaFin],
+      );
+
+      if ((overlappingReservations.rows[0]?.total ?? 0) > 0) {
+        throw new ApiError(409, 'No se puede cerrar la habitación porque ya tiene reservas activas en ese rango. Marca la opción de permitir cierre con reservas si solo quieres bloquear nuevas reservas.');
+      }
+    }
+
+    const overlappingBlocks = await client.query(
+      `
+        select count(*)::int as total
+        from public.bloqueos_habitacion
+        where id_habitacion = $1
+          and fecha_fin > $2::timestamptz
+          and fecha_inicio < $3::timestamptz
+      `,
+      [payload.habitacionId, payload.fechaInicio, payload.fechaFin],
+    );
+
+    if ((overlappingBlocks.rows[0]?.total ?? 0) > 0) {
+      throw new ApiError(409, 'Ya existe un cierre operativo para esa habitación dentro del rango seleccionado.');
+    }
+
+    const inserted = await client.query(
+      `
+        insert into public.bloqueos_habitacion (
+          id_habitacion,
+          fecha_inicio,
+          fecha_fin,
+          motivo
+        )
+        values ($1, $2, $3, $4)
+        returning id_bloqueo
+      `,
+      [payload.habitacionId, payload.fechaInicio, payload.fechaFin, payload.motivo],
+    );
+
+    const blockId = inserted.rows[0].id_bloqueo as string;
+    const blockResult = await client.query(
+      `
+        select
+          b.id_bloqueo as id,
+          b.id_habitacion as "habitacionId",
+          h.nombre_habitacion as habitacion,
+          h.codigo_habitacion as codigo,
+          h.id_hotel as "hotelId",
+          hotel.nombre_hotel as hotel,
+          b.fecha_inicio as "fechaInicio",
+          b.fecha_fin as "fechaFin",
+          b.motivo,
+          b.created_at as "createdAt"
+        from public.bloqueos_habitacion b
+        join public.habitaciones h on h.id_habitacion = b.id_habitacion
+        join public.hoteles hotel on hotel.id_hotel = h.id_hotel
+        where b.id_bloqueo = $1
+      `,
+      [blockId],
+    );
+
+    return blockResult.rows[0] ?? { id: blockId };
+  });
+
+  response.status(201).json(created);
+}));
+
+app.delete('/api/bloqueos-habitacion/:id', asyncHandler(async (request, response) => {
+  if (!(await hasFreshHotelSchema())) {
+    throw new ApiError(400, 'Los bloqueos por fechas solo están disponibles con el esquema hotelero actual.');
+  }
+
+  const id = routeId(request);
+  const existing = await pool.query('select 1 from public.bloqueos_habitacion where id_bloqueo = $1', [id]);
+  if (existing.rowCount === 0) throw new ApiError(404, 'Bloqueo no encontrado.');
+
+  await pool.query('delete from public.bloqueos_habitacion where id_bloqueo = $1', [id]);
   response.status(204).send();
 }));
 
@@ -1409,6 +2286,8 @@ app.get('/api/estadias', asyncHandler(async (_request, response) => {
           r.created_at as "fechaReserva",
           r.check_in as horario,
           r.total_reserva as "precioAplicado",
+          r.adultos,
+          r.ninos,
           hotel.nombre_hotel as sede,
           r.estado as hotel_estado
         from public.reservas_hotel r
@@ -1497,7 +2376,7 @@ app.post('/api/estadias', asyncHandler(async (request, response) => {
             anticipo,
             observaciones
           )
-          values ($1, $2, $3, $4, $5, 1, 0, $6, 'web', $7, $8, $9)
+          values ($1, $2, $3, $4, $5, $6, $7, $8, 'web', $9, $10, $11)
           returning id_reserva_hotel
         `,
         [
@@ -1506,6 +2385,8 @@ app.post('/api/estadias', asyncHandler(async (request, response) => {
           payload.actividadId,
           checkIn,
           checkOut,
+          payload.adultos ?? 1,
+          payload.ninos ?? 0,
           finalStatus,
           finalPrice,
           payload.pago ? finalPrice : 0,
@@ -1537,6 +2418,8 @@ app.post('/api/estadias', asyncHandler(async (request, response) => {
           ],
         );
       }
+
+      await syncFreshReservationPaymentStatus(createdReservationId, client);
 
       return createdReservationId;
     });
@@ -1605,6 +2488,8 @@ app.post('/api/estadias', asyncHandler(async (request, response) => {
       );
     }
 
+    await syncLegacyReservationPaymentStatus(createdReservationId, client);
+
     return createdReservationId;
   });
 
@@ -1633,9 +2518,11 @@ app.put('/api/estadias/:id', asyncHandler(async (request, response) => {
             id_habitacion = $4,
             check_in = $5,
             check_out = $6,
-            estado = $7,
-            total_reserva = $8,
-            observaciones = $9
+            adultos = $7,
+            ninos = $8,
+            estado = $9,
+            total_reserva = $10,
+            observaciones = $11
         where id_reserva_hotel = $1
       `,
       [
@@ -1645,11 +2532,15 @@ app.put('/api/estadias/:id', asyncHandler(async (request, response) => {
         payload.actividadId,
         checkIn,
         checkOut,
+        payload.adultos ?? 1,
+        payload.ninos ?? 0,
         mapLegacyStatusToHotel(payload.estado),
         payload.precioAplicado ?? Number(room.tarifa_noche) * nights,
         payload.observaciones ?? null,
       ],
     );
+
+    await syncFreshReservationPaymentStatus(id);
 
     const reservation = await getFreshReservationById(id);
     response.json(withHotelReservationAliases(reservation ?? {}));
@@ -1680,6 +2571,8 @@ app.put('/api/estadias/:id', asyncHandler(async (request, response) => {
       payload.estado,
     ],
   );
+
+  await syncLegacyReservationPaymentStatus(id);
 
   const reservation = await getReservationById(id);
   response.json(withHotelReservationAliases(reservation ?? {}));
@@ -1884,29 +2777,34 @@ app.post('/api/pagos', asyncHandler(async (request, response) => {
       throw new ApiError(400, 'El pago supera el saldo de la reserva hotelera.');
     }
 
-    const paymentResult = await pool.query(
-      `
-        insert into public.pagos_hotel (
-          id_reserva_hotel,
-          monto,
-          metodo_pago,
-          referencia,
-          fecha_pago,
-          estado
-        )
-        values ($1, $2, $3, $4, $5, 'aplicado')
-        returning id_pago_hotel
-      `,
-      [
-        payload.reservaId,
-        payload.monto,
-        payload.metodoPago,
-        payload.referencia ?? null,
-        payload.fechaPago ?? new Date().toISOString(),
-      ],
-    );
+    const paymentId = await withTransaction(async (client) => {
+      const paymentResult = await client.query(
+        `
+          insert into public.pagos_hotel (
+            id_reserva_hotel,
+            monto,
+            metodo_pago,
+            referencia,
+            fecha_pago,
+            estado
+          )
+          values ($1, $2, $3, $4, $5, 'aplicado')
+          returning id_pago_hotel
+        `,
+        [
+          payload.reservaId,
+          payload.monto,
+          payload.metodoPago,
+          payload.referencia ?? null,
+          payload.fechaPago ?? new Date().toISOString(),
+        ],
+      );
 
-    const payment = await getFreshPaymentById(paymentResult.rows[0].id_pago_hotel as string);
+      await syncFreshReservationPaymentStatus(payload.reservaId, client);
+      return paymentResult.rows[0].id_pago_hotel as string;
+    });
+
+    const payment = await getFreshPaymentById(paymentId);
     response.status(201).json(payment);
     return;
   }
@@ -1936,15 +2834,7 @@ app.post('/api/pagos', asyncHandler(async (request, response) => {
     );
 
     if (payload.reservaId) {
-      await client.query(
-        `
-          update public.reservas
-          set estado = 'confirmada'
-          where id_reserva = $1
-            and estado <> 'cancelada'
-        `,
-        [payload.reservaId],
-      );
+      await syncLegacyReservationPaymentStatus(payload.reservaId, client);
     }
 
     return created.rows[0].id_pago as string;
@@ -1962,25 +2852,34 @@ app.put('/api/pagos/:id', asyncHandler(async (request, response) => {
 
   await ensurePaymentRules(payload, id);
 
-  await pool.query(
-    `
-      update public.pagos
-      set monto = $2,
-          fecha_pago = $3,
-          metodo_pago = $4,
-          referencia = $5,
-          id_reserva = $6
-      where id_pago = $1
-    `,
-    [
-      id,
-      payload.monto,
-      payload.fechaPago ?? existing.fechaPago,
-      payload.metodoPago,
-      payload.referencia ?? existing.referencia ?? null,
-      payload.reservaId,
-    ],
-  );
+  await withTransaction(async (client) => {
+    await client.query(
+      `
+        update public.pagos
+        set monto = $2,
+            fecha_pago = $3,
+            metodo_pago = $4,
+            referencia = $5,
+            id_reserva = $6
+        where id_pago = $1
+      `,
+      [
+        id,
+        payload.monto,
+        payload.fechaPago ?? existing.fechaPago,
+        payload.metodoPago,
+        payload.referencia ?? existing.referencia ?? null,
+        payload.reservaId,
+      ],
+    );
+
+    if (existing.reservaId) {
+      await syncLegacyReservationPaymentStatus(existing.reservaId, client);
+    }
+    if (payload.reservaId && payload.reservaId !== existing.reservaId) {
+      await syncLegacyReservationPaymentStatus(payload.reservaId, client);
+    }
+  });
 
   const payment = await getPaymentById(id);
   response.json(payment);
@@ -1991,7 +2890,13 @@ app.delete('/api/pagos/:id', asyncHandler(async (request, response) => {
   const existing = await getPaymentById(id);
   if (!existing) throw new ApiError(404, 'Pago no encontrado.');
 
-  await pool.query('delete from public.pagos where id_pago = $1', [id]);
+  await withTransaction(async (client) => {
+    await client.query('delete from public.pagos where id_pago = $1', [id]);
+    if (existing.reservaId) {
+      await syncLegacyReservationPaymentStatus(existing.reservaId, client);
+    }
+  });
+
   response.status(204).send();
 }));
 

@@ -77,16 +77,30 @@ export const Pagos: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const paidReservationIds = useMemo(
-    () => new Set(pagos.filter((payment) => payment.reservaId).map((payment) => payment.reservaId as string)),
+  const paidAmountsByReservation = useMemo(
+    () => pagos.reduce((totals, payment) => {
+      if (!payment.reservaId) return totals;
+      totals.set(payment.reservaId, (totals.get(payment.reservaId) ?? 0) + payment.monto);
+      return totals;
+    }, new Map<string, number>()),
     [pagos],
   );
 
   const pendingReservations = useMemo(
     () => reservas
-      .filter((reservation) => reservation.estado !== 'cancelada' && !paidReservationIds.has(reservation.id))
+      .map((reservation) => {
+        const pagado = paidAmountsByReservation.get(reservation.id) ?? 0;
+        const saldo = Math.max(0, reservation.precioAplicado - pagado);
+
+        return {
+          ...reservation,
+          pagado,
+          saldo,
+        };
+      })
+      .filter((reservation) => reservation.estado !== 'cancelada' && reservation.saldo > 0.009)
       .sort((left, right) => new Date(right.fecha).getTime() - new Date(left.fecha).getTime()),
-    [paidReservationIds, reservas],
+    [paidAmountsByReservation, reservas],
   );
 
   const pendingCollectionsList = useMemo(
@@ -96,7 +110,9 @@ export const Pagos: React.FC = () => {
         tipo: 'reserva' as const,
         huesped: reservation.huesped,
         concepto: `${reservation.habitacion} · ${reservation.hotel}`,
-        saldo: reservation.precioAplicado,
+        saldo: reservation.saldo,
+        pagado: reservation.pagado,
+        total: reservation.precioAplicado,
       }))
       .sort((left, right) => right.saldo - left.saldo)
       .slice(0, 8),
@@ -111,7 +127,7 @@ export const Pagos: React.FC = () => {
     if (!selectedReservation) {
       setSelectedReservationId('');
     }
-    setAmount(selectedReservation ? String(selectedReservation.precioAplicado) : '0');
+    setAmount(selectedReservation ? selectedReservation.saldo.toFixed(2) : '0');
   }, [pendingReservations, selectedReservationId]);
 
   const filteredPayments = useMemo(() => {
@@ -270,7 +286,7 @@ export const Pagos: React.FC = () => {
         exportLabel: 'Exportar ingresos',
         pendingKicker: 'Cobranza',
         pendingTitle: 'Cuentas por cobrar',
-        pendingSubtitle: 'Pendientes abiertos de reservas que todavía no entran a ingresos.',
+        pendingSubtitle: 'Pendientes abiertos de reservas con saldo restante por cobrar.',
       }
     : {
         title: 'Cobros',
@@ -278,7 +294,7 @@ export const Pagos: React.FC = () => {
         exportLabel: 'Exportar CSV',
         pendingKicker: 'Pendientes',
         pendingTitle: 'Cobros por atender',
-        pendingSubtitle: 'Esta lista reúne reservas sin pago asociado.',
+        pendingSubtitle: 'Esta lista reúne reservas con saldo pendiente, incluso si ya tienen abonos.',
       };
 
   return (
@@ -404,7 +420,7 @@ export const Pagos: React.FC = () => {
             <select className="input" value={selectedReservationId} onChange={(event) => setSelectedReservationId(event.target.value)}>
               {pendingReservations.length === 0 && <option value="">Sin reservas pendientes</option>}
               {pendingReservations.map((reservation) => (
-                <option key={reservation.id} value={reservation.id}>{reservation.huesped} · {reservation.habitacion} · {formatCurrency(reservation.precioAplicado)}</option>
+                <option key={reservation.id} value={reservation.id}>{reservation.huesped} · {reservation.habitacion} · saldo {formatCurrency(reservation.saldo)}</option>
               ))}
             </select>
 
@@ -468,6 +484,7 @@ export const Pagos: React.FC = () => {
               <div className="payments-pending-meta">
                 <span className="pill ok">{item.tipo}</span>
                 <strong>{formatCurrency(item.saldo)}</strong>
+                <small>{formatCurrency(item.pagado)} de {formatCurrency(item.total)}</small>
               </div>
             </article>
           )) : <p className="muted">No hay cobros pendientes en este momento.</p>}

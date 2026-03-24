@@ -1,24 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { downloadCsv } from '../lib/export';
 import {
   createOperationalUser,
   deleteOperationalUser,
-  saveOperationalSettings,
-  type OperationalSettings,
   updateOperationalUser,
   type OperationalUserInput,
   type OperationalUserView,
 } from '../lib/api';
 import { useHotelData } from '../context/HotelDataContext';
-
-const defaultSettings: OperationalSettings = {
-  ciudadBase: 'Tegucigalpa',
-  horasAnticipacionReserva: 12,
-  umbralOcupacion: 85,
-  autoConfirmarPagos: true,
-  permitirEdicionEntrenador: true,
-  horaCierre: '21:00',
-};
 
 const emptyForm: OperationalUserInput = {
   nombre: '',
@@ -52,14 +41,6 @@ export const Usuarios: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<OperationalSettings>(defaultSettings);
-  const [savingSettings, setSavingSettings] = useState(false);
-  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!data?.operationalSettings) return;
-    setSettings(data.operationalSettings);
-  }, [data?.operationalSettings]);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -83,6 +64,7 @@ export const Usuarios: React.FC = () => {
     huespedes: usuarios.filter((usuario) => usuario.esCliente).length,
     personal: usuarios.filter((usuario) => usuario.esEntrenador).length,
     registrosBase: usuarios.filter((usuario) => usuario.tipoPerfil === 'persona').length,
+    mixtos: usuarios.filter((usuario) => usuario.tipoPerfil === 'cliente_y_entrenador').length,
   }), [usuarios]);
 
   const openCreate = () => {
@@ -148,23 +130,6 @@ export const Usuarios: React.FC = () => {
     }
   };
 
-  const saveSettings = async () => {
-    setSavingSettings(true);
-    setActionError(null);
-    setSettingsMessage(null);
-
-    try {
-      await saveOperationalSettings(settings);
-      await refresh();
-      setSettingsMessage('Configuracion operativa guardada en Supabase.');
-      window.setTimeout(() => setSettingsMessage(null), 2500);
-    } catch (settingsError) {
-      setActionError(settingsError instanceof Error ? settingsError.message : 'No se pudo guardar la configuracion operativa.');
-    } finally {
-      setSavingSettings(false);
-    }
-  };
-
   const handleExportUsers = () => {
     downloadCsv(filteredUsers, [
       { header: 'ID', value: (user) => user.id },
@@ -188,28 +153,28 @@ export const Usuarios: React.FC = () => {
     <div className="page users-page">
       <div className="users-header">
         <div>
-          <h2>Usuarios</h2>
-          <p className="muted">Directorio operativo de personas, huéspedes y personal con datos alineados a la base hotelera.</p>
+          <h2>Directorio operativo</h2>
+          <p className="muted">Alta y mantenimiento de personas base del hotel. Desde aquí defines si una persona funciona como huésped, personal o ambos.</p>
         </div>
         <div className="header-actions">
           <button className="btn ghost" onClick={handleExportUsers} disabled={filteredUsers.length === 0}>
             Exportar CSV
           </button>
-          <button className="cta-button" onClick={openCreate}>Nuevo usuario</button>
+          <button className="cta-button" onClick={openCreate}>Nueva persona</button>
         </div>
       </div>
 
-      {(error || actionError || feedback || settingsMessage) && (
+      {(error || actionError || feedback) && (
         <div className={`profile-feedback ${(error || actionError) ? 'error' : 'success'}`}>
-          {error ?? actionError ?? feedback ?? settingsMessage}
+          {error ?? actionError ?? feedback}
         </div>
       )}
 
       <section className="users-summary-grid">
-        <article className="card users-summary-card"><span>Perfiles totales</span><strong>{summary.total}</strong></article>
+        <article className="card users-summary-card"><span>Personas registradas</span><strong>{summary.total}</strong></article>
         <article className="card users-summary-card"><span>Huéspedes</span><strong>{summary.huespedes}</strong></article>
         <article className="card users-summary-card"><span>Personal</span><strong>{summary.personal}</strong></article>
-        <article className="card users-summary-card"><span>Solo registro base</span><strong>{summary.registrosBase}</strong></article>
+        <article className="card users-summary-card"><span>Mixtos o base</span><strong>{summary.mixtos + summary.registrosBase}</strong></article>
       </section>
 
       <section className="users-top-grid">
@@ -229,11 +194,11 @@ export const Usuarios: React.FC = () => {
             <table className="table dark users-table">
               <thead>
                 <tr>
-                  <th>Usuario</th>
-                  <th>Perfil</th>
+                  <th>Persona</th>
+                  <th>Rol operativo</th>
                   <th>Ciudad</th>
-                  <th>Telefono</th>
-                  <th>Detalle</th>
+                  <th>Teléfono</th>
+                  <th>Vinculación</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -248,11 +213,11 @@ export const Usuarios: React.FC = () => {
                     </td>
                     <td><span className={`pill ${usuario.esEntrenador ? 'ok' : usuario.esCliente ? 'warn' : 'danger'}`}>{roleLabel[usuario.tipoPerfil]}</span></td>
                     <td>{usuario.ciudad}</td>
-                    <td>{usuario.telefono || 'Sin telefono'}</td>
+                    <td>{usuario.telefono || 'Sin teléfono'}</td>
                     <td>
                       <div className="users-cell-stack">
-                        <strong>{usuario.especialidad ?? (usuario.esCliente ? 'Huésped registrado' : 'Sin detalle')}</strong>
-                        <span>{usuario.estadoLaboral ?? usuario.fechaRegistro ?? 'Sin estado adicional'}</span>
+                        <strong>{usuario.especialidad ?? (usuario.esCliente ? 'Perfil de huésped activo' : 'Sin especialidad')}</strong>
+                        <span>{usuario.esEntrenador ? (usuario.estadoLaboral ?? 'Sin estado laboral') : (usuario.fechaRegistro ?? 'Sin fecha de registro')}</span>
                       </div>
                     </td>
                     <td>
@@ -276,59 +241,32 @@ export const Usuarios: React.FC = () => {
         <article className="card users-settings-card">
           <div className="users-section-head">
             <div>
-              <span className="trainers-eyebrow">Configuracion</span>
-              <h3>Operacion diaria</h3>
+              <span className="trainers-eyebrow">Alcance</span>
+              <h3>Qué resuelve este módulo</h3>
             </div>
           </div>
 
-          <div className="users-settings-grid">
-            <label className="profile-field">
-              <span>Ciudad base</span>
-              <input className="input" value={settings.ciudadBase} onChange={(event) => setSettings((current) => ({ ...current, ciudadBase: event.target.value }))} />
-            </label>
-            <label className="profile-field">
-              <span>Horas minimas para reservar</span>
-              <input className="input" type="number" min="0" value={settings.horasAnticipacionReserva} onChange={(event) => setSettings((current) => ({ ...current, horasAnticipacionReserva: Number(event.target.value) }))} />
-            </label>
-            <label className="profile-field">
-              <span>Umbral de ocupacion</span>
-              <input className="input" type="number" min="1" max="100" value={settings.umbralOcupacion} onChange={(event) => setSettings((current) => ({ ...current, umbralOcupacion: Number(event.target.value) }))} />
-            </label>
-            <label className="profile-field">
-              <span>Hora de cierre</span>
-              <input className="input" type="time" value={settings.horaCierre} onChange={(event) => setSettings((current) => ({ ...current, horaCierre: event.target.value }))} />
-            </label>
+          <div className="users-guidance-list">
+            <article className="users-guidance-item">
+              <strong>Úsalo para altas maestras</strong>
+              <p className="muted">Aquí creas la persona base y decides si tendrá perfil de huésped, de personal o ambos.</p>
+            </article>
+            <article className="users-guidance-item">
+              <strong>Huéspedes y Personal siguen separados</strong>
+              <p className="muted">Las pantallas de Huespedes y Personal sirven para seguimiento operativo, no para administrar la identidad maestra.</p>
+            </article>
+            <article className="users-guidance-item">
+              <strong>No es configuración del hotel</strong>
+              <p className="muted">Los ajustes generales de operación deben vivir en otra sección, no mezclados con el directorio de personas.</p>
+            </article>
           </div>
-
-          <div className="profile-toggle-list users-toggle-list">
-            <label className="profile-toggle-row">
-              <div>
-                <strong>Confirmar pagos automaticamente</strong>
-                <span>Activa flujos mas rapidos al registrar cobros desde caja.</span>
-              </div>
-              <button type="button" className={`profile-toggle ${settings.autoConfirmarPagos ? 'active' : ''}`} onClick={() => setSettings((current) => ({ ...current, autoConfirmarPagos: !current.autoConfirmarPagos }))}>
-                <span />
-              </button>
-            </label>
-            <label className="profile-toggle-row">
-              <div>
-                <strong>Permitir edición desde perfil del personal</strong>
-                <span>Define si el personal puede ajustar sus datos operativos personales.</span>
-              </div>
-              <button type="button" className={`profile-toggle ${settings.permitirEdicionEntrenador ? 'active' : ''}`} onClick={() => setSettings((current) => ({ ...current, permitirEdicionEntrenador: !current.permitirEdicionEntrenador }))}>
-                <span />
-              </button>
-            </label>
-          </div>
-
-          <button className="btn" onClick={() => void saveSettings()} disabled={savingSettings}>{savingSettings ? 'Guardando...' : 'Guardar configuracion'}</button>
         </article>
       </section>
 
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
           <div className="modal users-modal" onClick={(event) => event.stopPropagation()}>
-            <h3>{editingUser ? 'Editar usuario operativo' : 'Nuevo usuario operativo'}</h3>
+            <h3>{editingUser ? 'Editar persona operativa' : 'Nueva persona operativa'}</h3>
             <form className="users-form-grid" onSubmit={handleSubmit}>
               <input className="input" placeholder="Nombre completo" value={form.nombre} onChange={(event) => setForm((current) => ({ ...current, nombre: event.target.value }))} required />
               <input className="input" type="email" placeholder="Correo" value={form.correo} onChange={(event) => setForm((current) => ({ ...current, correo: event.target.value }))} required />
@@ -357,7 +295,7 @@ export const Usuarios: React.FC = () => {
               )}
 
               <div className="users-modal-actions users-form-full">
-                <button className="btn" type="submit" disabled={submitting}>{submitting ? 'Guardando...' : 'Guardar usuario'}</button>
+                <button className="btn" type="submit" disabled={submitting}>{submitting ? 'Guardando...' : 'Guardar persona'}</button>
                 <button className="btn ghost" type="button" onClick={() => setModalOpen(false)}>Cancelar</button>
               </div>
             </form>
