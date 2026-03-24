@@ -425,7 +425,6 @@ export const Reservas: React.FC = () => {
   const [blockForm, setBlockForm] = useState<RoomBlockEditorState | null>(null);
   const [savingBlock, setSavingBlock] = useState(false);
   const [tariffCatalog, setTariffCatalog] = useState<TariffCatalogView | null>(null);
-  const [loadingTariffs, setLoadingTariffs] = useState(false);
   const reservas = (data?.estadiasView ?? []) as EstadiaView[];
   const habitaciones = data?.habitacionesView ?? [];
   const huespedes = data?.huespedesView ?? [];
@@ -520,7 +519,6 @@ export const Reservas: React.FC = () => {
     let cancelled = false;
 
     const loadTariffs = async () => {
-      setLoadingTariffs(true);
       try {
         const nextCatalog = await fetchTariffCatalog();
         if (!cancelled) {
@@ -531,9 +529,6 @@ export const Reservas: React.FC = () => {
           setTariffCatalog(null);
         }
       } finally {
-        if (!cancelled) {
-          setLoadingTariffs(false);
-        }
       }
     };
 
@@ -1738,7 +1733,7 @@ export const Reservas: React.FC = () => {
               <>
 
             <div className="reservas-wizard-shell">
-              <div className="reservas-wizard-progress" role="tablist" aria-label="Fases de la reserva">
+              <div className="reservas-wizard-progress reservas-wizard-progress-compact" role="tablist" aria-label="Fases de la reserva">
                 {reservationWizardSteps.map((step, index) => {
                   const currentIndex = reservationWizardSteps.findIndex((item) => item.id === reservationWizardStep);
                   const status = index < currentIndex ? 'done' : index === currentIndex ? 'current' : 'pending';
@@ -1761,19 +1756,36 @@ export const Reservas: React.FC = () => {
                 })}
               </div>
 
-            <div className="reservas-checkout-shell">
-              <section className="reservas-checkout-main">
+              <div className="reservas-compact-overview">
+                <article className="reservas-compact-overview-card accent">
+                  <span>Total estimado</span>
+                  <strong>{reservationPricingQuote ? `${reservationPricingQuote.total.toFixed(2)} ${reservationPricingQuote.currency}` : 'Pendiente'}</strong>
+                  <small>{reservationPricingQuote?.sourceLabel ?? 'Sin tarifa definida'}</small>
+                </article>
+                <article className="reservas-compact-overview-card">
+                  <span>Reserva</span>
+                  <strong>{selectedRoom?.nombre ?? 'Sin habitación'}</strong>
+                  <small>{reservationForm.permitirClienteNuevo ? (reservationForm.nuevoClienteNombre || 'Cliente nuevo') : (selectedGuest?.nombre ?? 'Sin huésped')}</small>
+                </article>
+                <article className="reservas-compact-overview-card">
+                  <span>Estadía</span>
+                  <strong>{reservationForm.noches} noche{reservationForm.noches === 1 ? '' : 's'}</strong>
+                  <small>{reservationPreviewCheckOut ? `Salida ${new Date(reservationPreviewCheckOut).toLocaleDateString('es-HN')}` : 'Completa los datos'}</small>
+                </article>
+              </div>
+
+              <div className="reservas-compact-body">
                 {reservationWizardStep === 'datos' ? (
-                  <div className="reservas-step-panel reservas-step-panel-main reservas-checkout-panel">
-                    <div className="reservas-checkout-panel-head">
+                  <section className="reservas-step-panel reservas-compact-panel">
+                    <div className="reservas-compact-panel-head">
                       <div>
-                        <span className="trainers-eyebrow">Datos de la estadía</span>
-                        <h4>Completa la reserva base</h4>
+                        <span className="trainers-eyebrow">Paso 1</span>
+                        <h4>Datos base</h4>
                       </div>
-                      <p className="muted">Define huésped, habitación y rango antes de pasar al cobro.</p>
+                      <p className="muted">Solo lo esencial para la reserva.</p>
                     </div>
 
-                    <div className="reservas-editor-grid reservas-editor-grid-data">
+                    <div className="reservas-compact-grid">
                       <label>
                         <span>Huésped</span>
                         <select className="input" value={reservationForm.huespedId} disabled={!selectedReservation && reservationForm.permitirClienteNuevo} onChange={(event) => setReservationForm((current) => current ? { ...current, huespedId: event.target.value } : current)}>
@@ -1790,7 +1802,7 @@ export const Reservas: React.FC = () => {
                         </select>
                       </label>
                       <label>
-                        <span>Check-in</span>
+                        <span>Entrada</span>
                         <input className="input" type="datetime-local" value={reservationForm.checkIn} onChange={(event) => setReservationForm((current) => current ? {
                           ...current,
                           checkIn: event.target.value,
@@ -1806,13 +1818,13 @@ export const Reservas: React.FC = () => {
                             ? getCheckOutFromNights(current.checkIn, current.noches)
                             : current.checkOut,
                         } : current)}>
-                          <option value="rango">Elegir rango</option>
-                          <option value="dias">Elegir número de noches</option>
+                          <option value="dias">Por noches</option>
+                          <option value="rango">Por rango</option>
                         </select>
                       </label>
                       {reservationForm.modoFechas === 'rango' ? (
                         <label>
-                          <span>Check-out</span>
+                          <span>Salida</span>
                           <input className="input" type="datetime-local" value={reservationForm.checkOut} min={reservationForm.checkIn} onChange={(event) => setReservationForm((current) => current ? {
                             ...current,
                             checkOut: event.target.value,
@@ -1820,40 +1832,58 @@ export const Reservas: React.FC = () => {
                           } : current)} />
                         </label>
                       ) : (
-                        <label>
+                        <div className="reservas-compact-counter-field">
                           <span>Noches</span>
-                          <input className="input" type="number" min="1" step="1" value={reservationForm.noches} onChange={(event) => setReservationForm((current) => current ? {
-                            ...current,
-                            noches: Math.max(1, Number(event.target.value) || 1),
-                            checkOut: getCheckOutFromNights(current.checkIn, Math.max(1, Number(event.target.value) || 1)),
-                          } : current)} />
-                        </label>
+                          <div className="reservas-compact-counter">
+                            <button type="button" className="btn ghost" onClick={() => setReservationForm((current) => current ? {
+                              ...current,
+                              noches: Math.max(1, current.noches - 1),
+                              checkOut: getCheckOutFromNights(current.checkIn, Math.max(1, current.noches - 1)),
+                            } : current)}>−</button>
+                            <strong>{reservationForm.noches}</strong>
+                            <button type="button" className="btn ghost" onClick={() => setReservationForm((current) => current ? {
+                              ...current,
+                              noches: current.noches + 1,
+                              checkOut: getCheckOutFromNights(current.checkIn, current.noches + 1),
+                            } : current)}>+</button>
+                          </div>
+                        </div>
                       )}
                       <label>
                         <span>Estado</span>
                         <select className="input" value={reservationForm.estado} onChange={(event) => setReservationForm((current) => current ? { ...current, estado: event.target.value as ReservationEditorState['estado'] } : current)}>
                           <option value="creada">Pendiente</option>
                           <option value="confirmada">Confirmada</option>
-                          <option value="completada" disabled>Completada por pago</option>
                           <option value="cancelada">Cancelada</option>
                         </select>
                       </label>
-                      <label>
+                    </div>
+
+                    <div className="reservas-compact-counter-row">
+                      <div className="reservas-compact-counter-field">
                         <span>Adultos</span>
-                        <input className="input" type="number" min="1" step="1" value={reservationForm.adultos} onChange={(event) => setReservationForm((current) => current ? { ...current, adultos: Math.max(1, Number(event.target.value) || 1) } : current)} />
-                      </label>
-                      <label>
+                        <div className="reservas-compact-counter">
+                          <button type="button" className="btn ghost" onClick={() => setReservationForm((current) => current ? { ...current, adultos: Math.max(1, current.adultos - 1) } : current)}>−</button>
+                          <strong>{reservationForm.adultos}</strong>
+                          <button type="button" className="btn ghost" onClick={() => setReservationForm((current) => current ? { ...current, adultos: current.adultos + 1 } : current)}>+</button>
+                        </div>
+                      </div>
+                      <div className="reservas-compact-counter-field">
                         <span>Niños</span>
-                        <input className="input" type="number" min="0" step="1" value={reservationForm.ninos} onChange={(event) => setReservationForm((current) => current ? { ...current, ninos: Math.max(0, Number(event.target.value) || 0) } : current)} />
-                      </label>
-                      <label className="reservas-field-span-full">
-                        <span>Observaciones</span>
-                        <textarea className="input" rows={3} value={reservationForm.observaciones} onChange={(event) => setReservationForm((current) => current ? { ...current, observaciones: event.target.value } : current)} />
+                        <div className="reservas-compact-counter">
+                          <button type="button" className="btn ghost" onClick={() => setReservationForm((current) => current ? { ...current, ninos: Math.max(0, current.ninos - 1) } : current)}>−</button>
+                          <strong>{reservationForm.ninos}</strong>
+                          <button type="button" className="btn ghost" onClick={() => setReservationForm((current) => current ? { ...current, ninos: current.ninos + 1 } : current)}>+</button>
+                        </div>
+                      </div>
+                      <label className="reservas-compact-note-field">
+                        <span>Nota breve</span>
+                        <input className="input" maxLength={120} placeholder="Observación corta" value={reservationForm.observaciones} onChange={(event) => setReservationForm((current) => current ? { ...current, observaciones: event.target.value } : current)} />
                       </label>
                     </div>
 
                     {!selectedReservation ? (
-                      <div className="reservas-guest-creation-card">
+                      <div className="reservas-guest-creation-card reservas-guest-creation-card-compact">
                         <label className="reservas-editor-checkbox reservas-side-toggle">
                           <input
                             type="checkbox"
@@ -1864,13 +1894,13 @@ export const Reservas: React.FC = () => {
                               huespedId: event.target.checked ? '' : current.huespedId,
                             } : current)}
                           />
-                          <span>Permitir cliente nuevo desde esta reserva</span>
+                          <span>Registrar cliente nuevo</span>
                         </label>
 
                         {reservationForm.permitirClienteNuevo ? (
-                          <div className="reservas-side-stack reservas-side-stack-form">
+                          <div className="reservas-compact-grid reservas-compact-grid-guest">
                             <label>
-                              <span>Nombre completo</span>
+                              <span>Nombre</span>
                               <input className="input" value={reservationForm.nuevoClienteNombre} onChange={(event) => setReservationForm((current) => current ? { ...current, nuevoClienteNombre: event.target.value } : current)} />
                             </label>
                             <label>
@@ -1885,224 +1915,126 @@ export const Reservas: React.FC = () => {
                               <span>Ciudad</span>
                               <input className="input" value={reservationForm.nuevoClienteCiudad} onChange={(event) => setReservationForm((current) => current ? { ...current, nuevoClienteCiudad: event.target.value } : current)} />
                             </label>
-                            <label className="reservas-side-field-full">
-                              <span>Dirección</span>
-                              <input className="input" value={reservationForm.nuevoClienteDireccion} onChange={(event) => setReservationForm((current) => current ? { ...current, nuevoClienteDireccion: event.target.value } : current)} />
-                            </label>
                           </div>
                         ) : null}
                       </div>
                     ) : null}
-                  </div>
+                  </section>
                 ) : null}
 
                 {reservationWizardStep === 'tarifas' ? (
-                  <div className="reservas-step-panel reservas-step-panel-main reservas-checkout-panel">
-                    <div className="reservas-checkout-panel-head">
+                  <section className="reservas-step-panel reservas-compact-panel">
+                    <div className="reservas-compact-panel-head">
                       <div>
-                        <span className="trainers-eyebrow">Cobro y descuento</span>
-                        <h4>Configura la tarifa aplicada</h4>
+                        <span className="trainers-eyebrow">Paso 2</span>
+                        <h4>Tarifa y cobro</h4>
                       </div>
-                      <p className="muted">Elige tarifa actual, personalizada o manual antes de confirmar.</p>
+                      <p className="muted">Selecciona el esquema de cobro.</p>
                     </div>
 
-                    <div className="reservas-editor-grid reservas-editor-grid-tariffs reservas-editor-grid-tariffs-wide">
-                      <label>
-                        <span>Tarifa por noche</span>
-                        <div className="reservas-editor-value">
-                          {selectedRoomCurrentTariff && tariffCatalog
-                            ? `${selectedRoomCurrentTariff.montoNoche.toFixed(2)} ${tariffCatalog.config.monedaBase}`
-                            : loadingTariffs
-                              ? 'Cargando tarifas...'
-                              : 'Sin tarifa actual'}
-                        </div>
-                      </label>
-                      <label>
-                        <span>Esquema tarifario</span>
-                        <select className="input" value={reservationForm.modoTarifa} onChange={(event) => setReservationForm((current) => current ? {
-                          ...current,
-                          modoTarifa: event.target.value as ReservationEditorState['modoTarifa'],
-                          tarifaPersonalizadaId: event.target.value === 'actual' ? '' : (current.tarifaPersonalizadaId || applicableCustomTariffs[0]?.id || 'manual'),
-                          tarifaManualMonto: event.target.value === 'personalizada' && current.tarifaManualMonto === 0
-                            ? selectedRoomCurrentTariff?.montoNoche ?? current.tarifaManualMonto
-                            : current.tarifaManualMonto,
-                          tarifaManualMoneda: tariffCatalog?.config.monedaBase ?? current.tarifaManualMoneda,
-                        } : current)}>
-                          <option value="actual">Tarifa actual</option>
-                          <option value="personalizada">Tarifa personalizada</option>
-                        </select>
-                      </label>
-                      {reservationForm.modoTarifa === 'personalizada' ? (
-                        <>
-                          <label className="reservas-field-span-full">
-                            <span>Origen tarifa personalizada</span>
-                            <select className="input" value={reservationForm.tarifaPersonalizadaId} onChange={(event) => setReservationForm((current) => current ? { ...current, tarifaPersonalizadaId: event.target.value } : current)}>
-                              <option value="manual">Escribir valor manual</option>
-                              {applicableCustomTariffs.map((tariff) => (
-                                <option key={tariff.id} value={tariff.id}>{tariff.nombre} · {tariff.montoNoche.toFixed(2)} {tariff.moneda}{tariff.habitacion ? ` · base ${tariff.habitacion}` : ' · global'}</option>
-                              ))}
-                            </select>
-                          </label>
-                          {usesManualCustomTariff ? (
-                            <>
-                              <label>
-                                <span>Tarifa manual por noche</span>
-                                <input className="input" type="number" min="0" step="0.01" value={reservationForm.tarifaManualMonto} onChange={(event) => setReservationForm((current) => current ? { ...current, tarifaManualMonto: Math.max(0, Number(event.target.value) || 0) } : current)} />
-                              </label>
-                              <label>
-                                <span>Moneda tarifa manual</span>
-                                <select className="input" value={reservationForm.tarifaManualMoneda} onChange={(event) => setReservationForm((current) => current ? { ...current, tarifaManualMoneda: event.target.value as SupportedCurrency } : current)}>
-                                  <option value="USD">USD</option>
-                                  <option value="HNL">HNL</option>
-                                </select>
-                              </label>
-                            </>
-                          ) : null}
-                        </>
-                      ) : null}
+                    <div className="reservas-mode-cards">
+                      <button type="button" className={`reservas-mode-card ${reservationForm.modoTarifa === 'actual' ? 'active' : ''}`} onClick={() => setReservationForm((current) => current ? { ...current, modoTarifa: 'actual', tarifaPersonalizadaId: '' } : current)}>
+                        <span>Actual</span>
+                        <strong>{selectedRoomCurrentTariff && tariffCatalog ? `${selectedRoomCurrentTariff.montoNoche.toFixed(2)} ${tariffCatalog.config.monedaBase}` : 'Sin tarifa'}</strong>
+                      </button>
+                      <button type="button" className={`reservas-mode-card ${reservationForm.modoTarifa === 'personalizada' ? 'active' : ''}`} onClick={() => setReservationForm((current) => current ? { ...current, modoTarifa: 'personalizada', tarifaPersonalizadaId: current.tarifaPersonalizadaId || applicableCustomTariffs[0]?.id || 'manual' } : current)}>
+                        <span>Personalizada</span>
+                        <strong>{selectedCustomTariff?.nombre ?? (usesManualCustomTariff ? 'Manual' : 'Elegir')}</strong>
+                      </button>
                     </div>
 
-                    <label className="reservas-editor-checkbox reservas-discount-toggle">
-                      <input
-                        type="checkbox"
-                        checked={reservationForm.aplicarDescuentoTerceraEdad}
-                        onChange={(event) => setReservationForm((current) => current ? { ...current, aplicarDescuentoTerceraEdad: event.target.checked } : current)}
-                      />
-                      <span>Aplicar descuento de tercera edad si corresponde</span>
-                    </label>
-
-                    {reservationPricingQuote ? (
-                      <div className="reservas-pricing-grid reservas-pricing-grid-wide">
-                        <div>
-                          <span>Tarifa aplicada</span>
-                          <strong>{reservationPricingQuote.appliedNightlyRate.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                        </div>
-                        <div>
-                          <span>Subtotal</span>
-                          <strong>{reservationPricingQuote.subtotal.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                        </div>
-                        <div>
-                          <span>Descuento tercera edad</span>
-                          <strong>{reservationPricingQuote.seniorDiscount.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                        </div>
-                        <div>
-                          <span>Impuesto</span>
-                          <strong>{reservationPricingQuote.taxAmount.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                        </div>
+                    {reservationForm.modoTarifa === 'personalizada' ? (
+                      <div className="reservas-compact-grid reservas-compact-grid-tariff">
+                        <label className="reservas-compact-grid-full">
+                          <span>Origen</span>
+                          <select className="input" value={reservationForm.tarifaPersonalizadaId} onChange={(event) => setReservationForm((current) => current ? { ...current, tarifaPersonalizadaId: event.target.value } : current)}>
+                            <option value="manual">Valor manual</option>
+                            {applicableCustomTariffs.map((tariff) => (
+                              <option key={tariff.id} value={tariff.id}>{tariff.nombre} · {tariff.montoNoche.toFixed(2)} {tariff.moneda}</option>
+                            ))}
+                          </select>
+                        </label>
+                        {usesManualCustomTariff ? (
+                          <>
+                            <label>
+                              <span>Monto</span>
+                              <input className="input" type="number" min="0" step="0.01" value={reservationForm.tarifaManualMonto} onChange={(event) => setReservationForm((current) => current ? { ...current, tarifaManualMonto: Math.max(0, Number(event.target.value) || 0) } : current)} />
+                            </label>
+                            <label>
+                              <span>Moneda</span>
+                              <select className="input" value={reservationForm.tarifaManualMoneda} onChange={(event) => setReservationForm((current) => current ? { ...current, tarifaManualMoneda: event.target.value as SupportedCurrency } : current)}>
+                                <option value="USD">USD</option>
+                                <option value="HNL">HNL</option>
+                              </select>
+                            </label>
+                          </>
+                        ) : null}
                       </div>
-                    ) : (
-                      <p className="muted">El cálculo se completará cuando la habitación tenga una tarifa aplicable.</p>
-                    )}
-                  </div>
+                    ) : null}
+
+                    <button type="button" className={`reservas-toggle-chip ${reservationForm.aplicarDescuentoTerceraEdad ? 'active' : ''}`} onClick={() => setReservationForm((current) => current ? { ...current, aplicarDescuentoTerceraEdad: !current.aplicarDescuentoTerceraEdad } : current)}>
+                      {reservationForm.aplicarDescuentoTerceraEdad ? 'Descuento tercera edad activo' : 'Aplicar descuento tercera edad'}
+                    </button>
+
+                    <div className="reservas-compact-metrics">
+                      <article>
+                        <span>Tarifa</span>
+                        <strong>{reservationPricingQuote ? `${reservationPricingQuote.appliedNightlyRate.toFixed(2)} ${reservationPricingQuote.currency}` : 'N/D'}</strong>
+                      </article>
+                      <article>
+                        <span>Subtotal</span>
+                        <strong>{reservationPricingQuote ? `${reservationPricingQuote.subtotal.toFixed(2)} ${reservationPricingQuote.currency}` : 'N/D'}</strong>
+                      </article>
+                      <article>
+                        <span>Descuento</span>
+                        <strong>{reservationPricingQuote ? `${reservationPricingQuote.seniorDiscount.toFixed(2)} ${reservationPricingQuote.currency}` : 'N/D'}</strong>
+                      </article>
+                      <article>
+                        <span>Total</span>
+                        <strong>{reservationPricingQuote ? `${reservationPricingQuote.total.toFixed(2)} ${reservationPricingQuote.currency}` : 'N/D'}</strong>
+                      </article>
+                    </div>
+                  </section>
                 ) : null}
 
                 {reservationWizardStep === 'resumen' ? (
-                  <div className="reservas-step-panel reservas-step-panel-main reservas-checkout-panel reservas-checkout-confirmation">
-                    <div className="reservas-checkout-panel-head">
+                  <section className="reservas-step-panel reservas-compact-panel reservas-checkout-confirmation">
+                    <div className="reservas-compact-panel-head">
                       <div>
-                        <span className="trainers-eyebrow">Reserva lista para cerrar</span>
-                        <h4>Confirma la reserva antes de finalizar</h4>
+                        <span className="trainers-eyebrow">Paso 3</span>
+                        <h4>Resumen final</h4>
                       </div>
-                      <p className="muted">Revisa este checklist. El resumen completo permanece a la derecha.</p>
+                      <p className="muted">Última revisión antes de guardar.</p>
                     </div>
 
-                    <div className="reservas-confirmation-list">
+                    <div className="reservas-confirmation-list reservas-confirmation-list-compact">
                       <article>
-                        <strong>{reservationForm.permitirClienteNuevo ? 'Cliente nuevo listo' : 'Huésped seleccionado'}</strong>
-                        <p>{reservationForm.permitirClienteNuevo ? (reservationForm.nuevoClienteNombre || 'Pendiente de nombre') : (selectedGuest?.nombre ?? 'Pendiente de huésped')}</p>
+                        <strong>Huésped</strong>
+                        <p>{reservationForm.permitirClienteNuevo ? reservationForm.nuevoClienteNombre || 'Cliente nuevo' : selectedGuest?.nombre ?? 'Sin huésped'}</p>
                       </article>
                       <article>
-                        <strong>Habitación y estadía</strong>
-                        <p>{selectedRoom?.nombre ?? 'Sin habitación'} · {reservationForm.noches} noche{reservationForm.noches === 1 ? '' : 's'}</p>
+                        <strong>Habitación</strong>
+                        <p>{selectedRoom?.nombre ?? 'Sin habitación'}</p>
                       </article>
                       <article>
-                        <strong>Tarifa aplicada</strong>
-                        <p>{reservationPricingQuote ? reservationPricingQuote.sourceLabel : 'Pendiente de cálculo'}</p>
+                        <strong>Estadía</strong>
+                        <p>{reservationForm.noches} noche{reservationForm.noches === 1 ? '' : 's'} · {reservationForm.adultos}A · {reservationForm.ninos}N</p>
                       </article>
                       <article>
-                        <strong>Observaciones</strong>
-                        <p>{reservationForm.observaciones.trim() || 'Sin observaciones adicionales.'}</p>
+                        <strong>Total</strong>
+                        <p>{reservationPricingQuote ? `${reservationPricingQuote.total.toFixed(2)} ${reservationPricingQuote.currency}` : 'Pendiente'}</p>
                       </article>
                     </div>
-                  </div>
+
+                    <div className="reservas-summary-note reservas-summary-note-compact">
+                      <strong>Detalle</strong>
+                      <p>{reservationForm.observaciones.trim() || 'Sin observaciones adicionales.'}</p>
+                    </div>
+                  </section>
                 ) : null}
-              </section>
+              </div>
 
-              <aside className="reservas-checkout-sidebar">
-                <div className="reservas-summary-total-pill reservas-summary-total-pill-sidebar">
-                  <span>Total final</span>
-                  <strong>{reservationPricingQuote ? `${reservationPricingQuote.total.toFixed(2)} ${reservationPricingQuote.currency}` : selectedReservation ? `${selectedReservation.total.toFixed(2)} USD` : 'N/D'}</strong>
-                </div>
-
-                <div className="reservas-checkout-summary-grid">
-                  <article className="reservas-summary-card-block">
-                    <span>Huésped</span>
-                    <strong>{reservationForm.permitirClienteNuevo ? reservationForm.nuevoClienteNombre || 'Cliente nuevo' : selectedGuest?.nombre ?? selectedReservation?.huesped ?? 'Sin seleccionar'}</strong>
-                    <small>{reservationForm.permitirClienteNuevo ? reservationForm.nuevoClienteCorreo || 'Correo pendiente' : selectedGuest?.correo ?? 'Huésped existente'}</small>
-                  </article>
-                  <article className="reservas-summary-card-block">
-                    <span>Habitación</span>
-                    <strong>{selectedRoom?.nombre ?? selectedReservation?.habitacion ?? 'Sin habitación'}</strong>
-                    <small>{selectedRoom?.hotel ?? selectedReservation?.hotel ?? 'Hotel sin asignar'}</small>
-                  </article>
-                  <article className="reservas-summary-card-block">
-                    <span>Estadía</span>
-                    <strong>{reservationForm.noches} noche{reservationForm.noches === 1 ? '' : 's'}</strong>
-                    <small>{new Date(reservationForm.checkIn).toLocaleString('es-HN')} → {reservationPreviewCheckOut ? new Date(reservationPreviewCheckOut).toLocaleString('es-HN') : 'Pendiente'}</small>
-                  </article>
-                  <article className="reservas-summary-card-block">
-                    <span>Ocupación</span>
-                    <strong>{reservationForm.adultos} adulto{reservationForm.adultos === 1 ? '' : 's'} · {reservationForm.ninos} niño{reservationForm.ninos === 1 ? '' : 's'}</strong>
-                    <small>Estado inicial: {getReservationStatusLabel(reservationForm.estado)}</small>
-                  </article>
-                </div>
-
-                {reservationPricingQuote ? (
-                  <div className="reservas-pricing-card reservas-pricing-card-checkout">
-                    <div className="reservas-pricing-head">
-                      <div>
-                        <strong>Resumen tarifario</strong>
-                        <span>{reservationPricingQuote.sourceLabel} · {reservationPricingQuote.nights} noche{reservationPricingQuote.nights === 1 ? '' : 's'}</span>
-                      </div>
-                      {tariffCatalog ? <span className="pill info">1 {tariffCatalog.config.monedaBase} = {tariffCatalog.config.tipoCambio.toFixed(4)} {tariffCatalog.config.monedaAlterna}</span> : null}
-                    </div>
-
-                    <div className="reservas-pricing-grid reservas-pricing-grid-checkout">
-                      <div>
-                        <span>Tarifa aplicada</span>
-                        <strong>{reservationPricingQuote.appliedNightlyRate.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                      </div>
-                      <div>
-                        <span>Subtotal</span>
-                        <strong>{reservationPricingQuote.subtotal.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                      </div>
-                      <div>
-                        <span>Descuento</span>
-                        <strong>{reservationPricingQuote.seniorDiscount.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                      </div>
-                      <div>
-                        <span>Impuesto</span>
-                        <strong>{reservationPricingQuote.taxAmount.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                      </div>
-                      <div>
-                        <span>Total</span>
-                        <strong>{reservationPricingQuote.total.toFixed(2)} {reservationPricingQuote.currency}</strong>
-                      </div>
-                      <div>
-                        <span>Total convertido</span>
-                        <strong>{reservationPricingQuote.totalAlternate.toFixed(2)} {reservationPricingQuote.alternateCurrency}</strong>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <article className="reservas-side-note muted-surface">
-                    <strong>Resumen rápido</strong>
-                    <p>{selectedRoom?.nombre ?? 'Sin habitación'} · {reservationForm.adultos} adulto{reservationForm.adultos === 1 ? '' : 's'} · {reservationForm.ninos} niño{reservationForm.ninos === 1 ? '' : 's'}</p>
-                  </article>
-                )}
-              </aside>
             </div>
-
             <div className="reservas-editor-actions reservas-editor-actions-wizard">
               <div className="reservas-editor-footer-meta">
                 <div>
@@ -2135,7 +2067,6 @@ export const Reservas: React.FC = () => {
                   </button>
                 )}
               </div>
-            </div>
             </div>
               </>
             )}

@@ -1050,13 +1050,52 @@ code {
 .occupancy-cell.room-state.segment-end span { border-radius:0 12px 12px 0; }
 .reservas-table-actions { display:flex; gap:8px; flex-wrap:wrap }
 .reservas-block-item { gap:8px }
-.modal.reservas-editor-modal { display:flex; flex-direction:column; width:calc(100vw - 32px); max-width:calc(100vw - 32px); height:calc(100vh - 32px); max-height:calc(100vh - 32px); padding:16px; overflow:hidden; scrollbar-gutter:stable }
+.modal.reservas-editor-modal { display:flex; flex-direction:column; align-self:center; width:min(920px, calc(100vw - 40px)); max-width:min(920px, calc(100vw - 40px)); height:min(760px, calc(100dvh - 40px)); max-height:calc(100dvh - 40px); margin:auto; padding:16px; overflow:hidden; scrollbar-gutter:stable }
 .reservas-editor-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:14px }
 .reservas-editor-subtitle { margin:0; max-width:520px; line-height:1.45 }
 .reservas-editor-head-actions { display:flex; align-items:center; gap:10px; flex-shrink:0 }
 .reservas-modal-close { width:38px; height:38px; border-radius:999px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--shell-panel) 92%, transparent); color:var(--text-h); font-size:1.45rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer }
-.reservas-wizard-shell { display:grid; gap:14px; flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding:0 4px 14px 0 }
-.reservas-checkout-shell { display:grid; grid-template-columns:minmax(0, 1.45fr) minmax(320px, 0.9fr); gap:16px; align-items:start }
+.reservas-wizard-shell { display:grid; grid-template-rows:auto auto minmax(0, 1fr); gap:12px; flex:1 1 auto; min-height:0; overflow:hidden; padding:0 }
+.reservas-wizard-progress-compact { gap:8px }
+.reservas-compact-overview { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px }
+.reservas-compact-overview-card { padding:12px 14px; border-radius:16px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 80%, transparent); min-width:0 }
+.reservas-compact-overview-card.accent { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 88%, white 5%), color-mix(in srgb, var(--accent-strong) 90%, white 5%)); color:#fff; border-color:transparent }
+.reservas-compact-overview-card span { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:6px }
+.reservas-compact-overview-card.accent span,
+.reservas-compact-overview-card.accent small { color:rgba(255,255,255,.82) }
+.reservas-compact-overview-card strong { display:block; color:var(--text-h); font-size:1.15rem; line-height:1.2 }
+.reservas-compact-overview-card.accent strong { color:#fff }
+.reservas-compact-overview-card small { display:block; margin-top:6px; color:var(--muted); line-height:1.35; overflow-wrap:anywhere }
+.reservas-compact-body { min-height:0; overflow:auto; padding-right:4px }
+.reservas-compact-panel { display:grid; gap:14px }
+.reservas-compact-panel-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px }
+.reservas-compact-panel-head h4 { margin:4px 0 0; color:var(--text-h) }
+.reservas-compact-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px 14px }
+.reservas-compact-grid-guest,
+.reservas-compact-grid-tariff { grid-template-columns:repeat(2, minmax(0, 1fr)) }
+.reservas-compact-grid-full { grid-column:1 / -1 }
+.reservas-compact-counter-row { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px 14px; align-items:end }
+.reservas-compact-counter-field { display:grid; gap:6px }
+.reservas-compact-counter-field span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em }
+.reservas-compact-counter { display:grid; grid-template-columns:42px minmax(44px, auto) 42px; gap:8px; align-items:center }
+.reservas-compact-counter strong { display:flex; align-items:center; justify-content:center; min-height:38px; border-radius:12px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--shell-panel) 90%, transparent); color:var(--text-h); font-size:1rem }
+.reservas-compact-counter .btn { padding:0; min-height:38px; border-radius:12px }
+.reservas-compact-note-field { display:grid; gap:6px }
+.reservas-guest-creation-card-compact { gap:10px }
+.reservas-mode-cards { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px }
+.reservas-mode-card { display:grid; gap:6px; padding:14px; border-radius:16px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 78%, transparent); color:var(--text); text-align:left; cursor:pointer }
+.reservas-mode-card span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em }
+.reservas-mode-card strong { color:var(--text-h); font-size:1rem; overflow-wrap:anywhere }
+.reservas-mode-card.active { border-color: color-mix(in srgb, var(--accent) 46%, var(--shell-border)); background: color-mix(in srgb, var(--accent-bg) 82%, transparent) }
+.reservas-toggle-chip { width:max-content; max-width:100%; padding:10px 14px; border-radius:999px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--shell-panel) 92%, transparent); color:var(--text-h); cursor:pointer }
+.reservas-toggle-chip.active { border-color: color-mix(in srgb, var(--success) 46%, var(--shell-border)); background: color-mix(in srgb, var(--success) 12%, var(--shell-panel)) }
+.reservas-compact-metrics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px }
+.reservas-compact-metrics article { padding:12px; border-radius:14px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 76%, transparent) }
+.reservas-compact-metrics span { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px }
+.reservas-compact-metrics strong { color:var(--text-h); font-size:1rem; line-height:1.25; overflow-wrap:anywhere }
+.reservas-confirmation-list-compact { grid-template-columns:repeat(2, minmax(0, 1fr)) }
+.reservas-summary-note-compact { padding:14px 16px }
+.reservas-checkout-shell { display:grid; grid-template-columns:minmax(0, 1.45fr) minmax(320px, 0.9fr); gap:16px; align-items:stretch; min-height:0; overflow:hidden }
 .reservas-checkout-main,
 .reservas-checkout-sidebar { display:grid; gap:14px; align-content:start }
 .reservas-checkout-main,
@@ -1064,7 +1103,9 @@ code {
 .reservas-step-panel,
 .reservas-pricing-card,
 .reservas-pricing-card-checkout { min-width:0 }
-.reservas-checkout-sidebar { position:sticky; top:16px }
+.reservas-checkout-main,
+.reservas-checkout-sidebar { min-height:0; overflow:auto; padding-right:4px }
+.reservas-checkout-sidebar { position:static }
 .reservas-checkout-panel { display:grid; gap:18px }
 .reservas-checkout-panel-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px }
 .reservas-checkout-panel-head h4 { margin:4px 0 0; color:var(--text-h); font-size:1.22rem }
@@ -1116,7 +1157,7 @@ code {
 .reservas-editor-checkbox { display:flex; align-items:flex-start; gap:10px; margin-bottom:14px; color:var(--text); font-size:13px; line-height:1.45 }
 .reservas-editor-checkbox input { margin-top:2px }
 .reservas-editor-actions { display:flex; justify-content:flex-end; gap:10px; align-items:center; flex-wrap:wrap }
-.reservas-editor-actions-wizard { display:grid; grid-template-columns:minmax(0, 1fr); justify-content:stretch; gap:12px; position:sticky; bottom:0; z-index:3; padding:12px 0 0; margin-top:6px; border-top:1px solid var(--shell-border); background:linear-gradient(180deg, color-mix(in srgb, var(--shell-panel-strong) 12%, transparent), var(--shell-panel-strong) 36%, var(--shell-panel-strong) 100%) }
+.reservas-editor-actions-wizard { display:grid; grid-template-columns:minmax(0, 1fr); justify-content:stretch; gap:12px; flex:0 0 auto; padding:12px 0 0; margin-top:6px; border-top:1px solid var(--shell-border); background:linear-gradient(180deg, color-mix(in srgb, var(--shell-panel-strong) 12%, transparent), var(--shell-panel-strong) 36%, var(--shell-panel-strong) 100%) }
 .reservas-editor-footer-meta { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; flex:1 1 auto; min-width:0 }
 .reservas-editor-footer-meta > div { padding:12px 14px; border-radius:14px; border:1px solid var(--shell-border); background: color-mix(in srgb, var(--card-bg-soft) 76%, transparent); min-width:0 }
 .reservas-editor-footer-meta span { display:block; color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px }
@@ -1209,17 +1250,27 @@ code {
 .pill.danger { background: linear-gradient(90deg,#ef4444,#be185d); color:#fff }
 
 @media (max-width: 1180px) {
-  .modal.reservas-editor-modal { width:calc(100vw - 24px); max-width:calc(100vw - 24px); height:calc(100vh - 24px); max-height:calc(100vh - 24px) }
+  .modal.reservas-editor-modal { width:min(920px, calc(100vw - 24px)); max-width:min(920px, calc(100vw - 24px)); height:min(760px, calc(100dvh - 24px)); max-height:calc(100dvh - 24px) }
   .reservas-checkout-shell,
   .reservas-step-layout,
   .reservas-step-layout-pricing { grid-template-columns:1fr }
-  .reservas-checkout-sidebar { position:static }
+  .reservas-checkout-shell { overflow:auto }
+  .reservas-checkout-main,
+  .reservas-checkout-sidebar { overflow:visible; padding-right:0 }
   .reservas-editor-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) }
   .reservas-editor-grid-data { grid-template-columns:repeat(2, minmax(0, 1fr)) }
 }
 
 @media (max-width: 980px) {
-  .modal.reservas-editor-modal { width:calc(100vw - 20px); max-width:calc(100vw - 20px); height:calc(100vh - 20px); max-height:calc(100vh - 20px) }
+  .modal.reservas-editor-modal { width:calc(100vw - 20px); max-width:calc(100vw - 20px); height:min(720px, calc(100dvh - 20px)); max-height:calc(100dvh - 20px) }
+  .reservas-compact-overview,
+  .reservas-compact-counter-row,
+  .reservas-compact-metrics,
+  .reservas-mode-cards,
+  .reservas-compact-grid,
+  .reservas-compact-grid-guest,
+  .reservas-compact-grid-tariff,
+  .reservas-confirmation-list-compact { grid-template-columns:1fr }
   .reservas-wizard-progress,
   .reservas-editor-grid { grid-template-columns:1fr }
   .reservas-editor-grid-data,
@@ -1241,7 +1292,7 @@ code {
 
 @media (max-width: 640px) {
   .modal-overlay { padding:10px }
-  .modal.reservas-editor-modal { width:calc(100vw - 20px); max-width:calc(100vw - 20px); height:calc(100vh - 20px); max-height:calc(100vh - 20px); padding:14px }
+  .modal.reservas-editor-modal { width:calc(100vw - 20px); max-width:calc(100vw - 20px); height:calc(100dvh - 20px); max-height:calc(100dvh - 20px); padding:14px }
   .stats-grid { grid-template-columns:1fr }
   .card-list { grid-template-columns: 1fr }
   .cards-row { grid-template-columns:1fr }
@@ -1265,8 +1316,9 @@ code {
   .reservas-editor-actions-wizard,
   .reservas-editor-action-buttons { width:100%; justify-content:stretch }
   .reservas-editor-footer-meta { width:100% }
-  .reservas-wizard-shell { padding-bottom:128px }
   .reservas-editor-action-buttons .btn { width:100% }
+  .reservas-compact-panel-head { flex-direction:column }
+  .reservas-wizard-step { padding:10px 12px }
   .occupancy-board-wrap { --occupancy-room-width: 170px; --occupancy-day-width: 72px }
   .occupancy-room-head,
   .occupancy-room-cell { min-width:170px; max-width:170px }
