@@ -6,6 +6,7 @@ import { useAuth, AuthProvider, type UserRole } from './context/AuthContext';
 import { HotelDataProvider } from './context/HotelDataContext';
 import { UIProvider } from './context/UIContext';
 
+
 const AuthPage = lazy(() => import('./components/AuthPage'));
 const DashboardLayout = lazy(() => import('./components/DashboardLayout'));
 const AdminHome = lazy(() => import('./components/AdminHome'));
